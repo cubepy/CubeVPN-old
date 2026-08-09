@@ -2039,7 +2039,10 @@ private fun ServicesScreen(
             if (fetched == null || fetched.configs.isEmpty()) {
                 // Don't overwrite an already-added subscription's servers (and whatever's
                 // selected from them) with an empty list on a transient fetch failure.
-                android.widget.Toast.makeText(context, t("fetch_failed"), android.widget.Toast.LENGTH_SHORT).show()
+                // These are two very different failures — the request never landing vs. it
+                // landing with nothing this app can run — so don't report them identically.
+                val msg = if (fetched == null) t("fetch_failed") else t("no_supported_servers")
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
             } else {
                 val info = fetched.userInfo
                 store.upsertSubscription(
@@ -2594,11 +2597,11 @@ private fun ConfigPickerScreen(
                                 try {
                                     val result = SubscriptionFetcher.fetchFull(sub.url)
                                     if (result.configs.isEmpty()) {
-                                        // A blank/failed response with no thrown exception (e.g. a
-                                        // transient network hiccup returning an empty body) must not
-                                        // wipe the subscription's existing servers — and with them,
-                                        // whatever was selected/connected.
-                                        subStatus = t("fetch_failed")
+                                        // A response with no usable servers must not wipe the
+                                        // subscription's existing ones — and with them, whatever
+                                        // was selected/connected. The request itself succeeded
+                                        // here, so say that rather than blaming the network.
+                                        subStatus = t("no_supported_servers")
                                     } else {
                                         val info = result.userInfo
                                         store.upsertSubscription(
