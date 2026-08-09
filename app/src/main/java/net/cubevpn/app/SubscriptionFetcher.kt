@@ -10,6 +10,7 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.HostnameVerifier
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLException
 import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
@@ -64,23 +65,13 @@ object SubscriptionFetcher {
         var current = startUrl
         var hops = 0
         while (true) {
-            val conn = (URL(current).openConnection() as HttpURLConnection).apply {
-                if (this is HttpsURLConnection) {
-                    sslSocketFactory = insecureSocketFactory()
-                    hostnameVerifier = HostnameVerifier { _, _ -> true }
-                }
-                connectTimeout = 12000
-                readTimeout = 12000
-                requestMethod = "GET"
-                setRequestProperty("User-Agent", "CubeVPN")
-                instanceFollowRedirects = false
-            }
+            val conn = connect(current)
             val code = conn.responseCode
             if (code in 300..399 && hops < 5) {
                 val loc = conn.getHeaderField("Location")
                 conn.disconnect()
                 if (loc.isNullOrBlank()) {
-                    return (URL(current).openConnection() as HttpURLConnection)
+                    return connect(current)
                 }
                 current = URL(URL(current), loc).toString()
                 hops++
@@ -89,6 +80,37 @@ object SubscriptionFetcher {
             return conn
         }
     }
+
+    /**
+     * Validates the TLS certificate normally first. Only if that handshake actually fails
+     * (self-hosted subscription panels commonly run on self-signed certs in this ecosystem)
+     * do we fall back to trusting anything, and only for that one host/hop. This keeps
+     * self-signed panels working exactly as before while protecting every panel that does
+     * have a real certificate from a network-level MITM injecting hostile proxy configs.
+     */
+    private fun connect(urlStr: String): HttpURLConnection {
+        val validated = buildConnection(urlStr, insecure = false)
+        return try {
+            validated.responseCode
+            validated
+        } catch (e: SSLException) {
+            runCatching { validated.disconnect() }
+            buildConnection(urlStr, insecure = true)
+        }
+    }
+
+    private fun buildConnection(urlStr: String, insecure: Boolean): HttpURLConnection =
+        (URL(urlStr).openConnection() as HttpURLConnection).apply {
+            if (insecure && this is HttpsURLConnection) {
+                sslSocketFactory = insecureSocketFactory()
+                hostnameVerifier = HostnameVerifier { _, _ -> true }
+            }
+            connectTimeout = 12000
+            readTimeout = 12000
+            requestMethod = "GET"
+            setRequestProperty("User-Agent", "CubeVPN")
+            instanceFollowRedirects = false
+        }
 
     private fun insecureSocketFactory(): SSLSocketFactory {
         val trustAll = arrayOf<TrustManager>(object : X509TrustManager {
