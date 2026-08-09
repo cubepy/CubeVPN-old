@@ -32,6 +32,17 @@ data class FetchResult(
 
 object SubscriptionFetcher {
 
+    /**
+     * Panels pick the response format from the User-Agent, and an unrecognized one is not a
+     * neutral choice — it's the fallback bucket. Sending "CubeVPN" got us a JSON array of whole
+     * Xray configs (or Clash YAML elsewhere) instead of the `vless://` list this app parses, so
+     * subscriptions downloaded fine and then yielded zero servers. Identifying as v2rayNG gets
+     * the plain link list every panel agrees on; v2rayN-style base64 is handled too, so both of
+     * the common link formats work. Don't change this to a CubeVPN-branded string without
+     * teaching the parser Clash/sing-box first.
+     */
+    private const val SUB_USER_AGENT = "v2rayNG/1.8.23"
+
     suspend fun fetch(url: String, source: ConfigSource = ConfigSource.PERSONAL): List<ProxyConfig> =
         fetchFull(url, source).configs
 
@@ -108,7 +119,7 @@ object SubscriptionFetcher {
             connectTimeout = 12000
             readTimeout = 12000
             requestMethod = "GET"
-            setRequestProperty("User-Agent", "CubeVPN")
+            setRequestProperty("User-Agent", SUB_USER_AGENT)
             instanceFollowRedirects = false
         }
 
