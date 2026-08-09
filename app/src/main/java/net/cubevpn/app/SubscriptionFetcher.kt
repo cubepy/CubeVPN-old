@@ -137,11 +137,34 @@ object SubscriptionFetcher {
         )
     }
 
+    /**
+     * Subscription bodies come either as plain `scheme://…` lines or base64-wrapped. Panels are
+     * inconsistent about which base64 they emit: some use the URL-safe alphabet (`-`/`_`), some
+     * drop the `=` padding, most wrap at 76 chars. Android's standard-alphabet decoder rejects
+     * the first two outright, and a rejected decode used to fall through to returning the raw
+     * base64 text — which parses to zero servers and surfaces as a bogus "fetch failed".
+     */
     private fun decodeMaybeBase64(body: String): String {
         val trimmed = body.trim()
         if (trimmed.contains("://")) return trimmed
+
+        val normalized = buildString(trimmed.length) {
+            for (c in trimmed) when {
+                c.isWhitespace() -> {}
+                c == '-' -> append('+')
+                c == '_' -> append('/')
+                else -> append(c)
+            }
+        }
+        if (normalized.isEmpty()) return trimmed
+        val padded = when (normalized.length % 4) {
+            2 -> "$normalized=="
+            3 -> "$normalized="
+            0 -> normalized
+            else -> return trimmed // length%4==1 is never valid base64
+        }
         return try {
-            String(Base64.decode(trimmed, Base64.DEFAULT), Charsets.UTF_8)
+            String(Base64.decode(padded, Base64.DEFAULT), Charsets.UTF_8)
         } catch (e: Exception) {
             trimmed
         }
