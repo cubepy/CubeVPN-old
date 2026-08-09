@@ -154,6 +154,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -774,7 +775,7 @@ private fun LanguagePickerScreen(onChoose: (Lang) -> Unit) {
 private enum class AuthStep { IDENTIFIER, OTP }
 
 @Composable
-private fun AuthGate(store: ConfigStore) {
+private fun AuthGate(store: ConfigStore, onSkip: () -> Unit) {
     val t = stringsFn()
     var step by remember { mutableStateOf(AuthStep.IDENTIFIER) }
     var identifier by remember { mutableStateOf("") }
@@ -811,7 +812,8 @@ private fun AuthGate(store: ConfigStore) {
                 onIdentifierChange = { identifier = it; error = null },
                 loading = loading,
                 error = error,
-                onSubmit = { if (identifier.isNotBlank() && !loading) requestCode { step = AuthStep.OTP } }
+                onSubmit = { if (identifier.isNotBlank() && !loading) requestCode { step = AuthStep.OTP } },
+                onSkip = onSkip
             )
             AuthStep.OTP -> OtpVerifyScreen(
                 identifier = identifier,
@@ -844,9 +846,11 @@ private fun LoginIdentifierScreen(
     onIdentifierChange: (String) -> Unit,
     loading: Boolean,
     error: String?,
-    onSubmit: () -> Unit
+    onSubmit: () -> Unit,
+    onSkip: () -> Unit
 ) {
     val t = stringsFn()
+    val uriHandler = LocalUriHandler.current
     Column(
         Modifier
             .fillMaxSize()
@@ -893,6 +897,28 @@ private fun LoginIdentifierScreen(
             modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
             if (loading) Text("…") else Text(t("login_get_code"))
+        }
+        Spacer(Modifier.height(20.dp))
+        HorizontalDivider(modifier = Modifier.fillMaxWidth(0.6f))
+        Spacer(Modifier.height(16.dp))
+        Text(
+            t("login_customers_only_note"),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            TextButton(onClick = { runCatching { uriHandler.openUri("https://t.me/cube_vpnn") } }) {
+                Text(t("login_open_channel"))
+            }
+            TextButton(onClick = { runCatching { uriHandler.openUri("https://t.me/cubevvpn_bot") } }) {
+                Text(t("login_open_bot"))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        TextButton(onClick = onSkip) {
+            Text(t("login_continue_guest"))
         }
     }
 }
@@ -1064,12 +1090,13 @@ class MainActivity : ComponentActivity() {
                             startMain = true
                         }
                         val authToken by store.authToken.collectAsState()
+                        val guestMode by store.guestMode.collectAsState()
                         Box {
                             if (startMain) {
-                                if (authToken != null) {
+                                if (authToken != null || guestMode) {
                                     CubeVpnApp(store = store, onConnect = ::connectTo, onDisconnect = ::disconnect, onSwitch = ::switchTo)
                                 } else {
-                                    AuthGate(store = store)
+                                    AuthGate(store = store, onSkip = { store.setGuestMode(true) })
                                 }
                             }
                             AnimatedVisibility(
@@ -1180,6 +1207,9 @@ private fun CubeVpnApp(
     val t = stringsFn()
     val lang = LocalLang.current
     val scope = rememberCoroutineScope()
+    val authToken by store.authToken.collectAsState()
+    val loggedIn = authToken != null
+    val onRequestLogin: () -> Unit = { store.setGuestMode(false) }
     val themeMode by store.themeMode.collectAsState()
     val effectiveDark = when (themeMode) {
         ThemeMode.LIGHT -> false
@@ -1641,7 +1671,9 @@ private fun CubeVpnApp(
                             services = accountServices,
                             loading = accountServicesLoading,
                             error = accountServicesError,
+                            loggedIn = loggedIn,
                             onRetry = { refreshAccountServices() },
+                            onRequestLogin = onRequestLogin,
                             onViewServers = { showServices = false; showPicker = true }
                         )
                         else -> ConnectionScreen(
@@ -1693,7 +1725,9 @@ private fun CubeVpnApp(
                         "referral" -> ReferralScreen(
                             user = accountUser,
                             error = if (accountUser == null) accountServicesError else null,
-                            onRetry = { refreshAccountServices() }
+                            loggedIn = loggedIn,
+                            onRetry = { refreshAccountServices() },
+                            onRequestLogin = onRequestLogin
                         )
                         else -> SettingsScreen(
                             store = store,
@@ -1956,7 +1990,9 @@ private fun ServicesScreen(
     services: List<AccountService>,
     loading: Boolean,
     error: String?,
+    loggedIn: Boolean,
     onRetry: () -> Unit,
+    onRequestLogin: () -> Unit,
     onViewServers: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2012,6 +2048,24 @@ private fun ServicesScreen(
             }
             adding[svc.id] = false
         }
+    }
+
+    if (!loggedIn) {
+        Column(
+            modifier.fillMaxSize().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                t("services_login_needed"),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(12.dp))
+            BounceOutlinedButton(onClick = onRequestLogin) { Text(t("login_title")) }
+        }
+        return
     }
 
     if (loading && services.isEmpty() && error == null) {
@@ -3032,6 +3086,7 @@ private fun SettingsScreen(
         else if (h == 1) t("every_hour").format(localizeDigits("$h", lang))
         else t("every_hours").format(localizeDigits("$h", lang))
 
+    val authToken by store.authToken.collectAsState()
     val authIdentifier by store.authIdentifier.collectAsState()
     var confirmLogout by remember { mutableStateOf(false) }
 
@@ -3045,13 +3100,25 @@ private fun SettingsScreen(
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
         ) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    localizeDigits(authIdentifier ?: "", lang),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = { confirmLogout = true }) { Text(t("logout")) }
+            if (authToken != null) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        localizeDigits(authIdentifier ?: "", lang),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { confirmLogout = true }) { Text(t("logout")) }
+                }
+            } else {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        t("services_login_needed"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { store.setGuestMode(false) }) { Text(t("login_title")) }
+                }
             }
         }
         if (confirmLogout) {
@@ -3569,7 +3636,9 @@ private fun ReferralScreen(
     user: AuthUser?,
     modifier: Modifier = Modifier,
     error: String? = null,
-    onRetry: () -> Unit = {}
+    loggedIn: Boolean = true,
+    onRetry: () -> Unit = {},
+    onRequestLogin: () -> Unit = {}
 ) {
     val t = stringsFn()
     val lang = LocalLang.current
@@ -3620,6 +3689,27 @@ private fun ReferralScreen(
         }
 
         when {
+            !loggedIn -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            t("services_login_needed"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        BounceOutlinedButton(onClick = onRequestLogin) { Text(t("login_title")) }
+                    }
+                }
+            }
             user != null -> {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

@@ -60,6 +60,15 @@ class ConfigStore private constructor(context: Context) {
             .apply()
     }
 
+    /** Set once someone picks "continue without an account" on the login screen, so the app
+     * doesn't re-prompt for Telegram login on every launch. Manual config entry works either way. */
+    private val _guestMode = MutableStateFlow(prefs.getBoolean(KEY_GUEST_MODE, false))
+    val guestMode: StateFlow<Boolean> = _guestMode.asStateFlow()
+    fun setGuestMode(value: Boolean) {
+        _guestMode.value = value
+        prefs.edit().putBoolean(KEY_GUEST_MODE, value).apply()
+    }
+
     private val _configs = MutableStateFlow<List<ProxyConfig>>(emptyList())
     val configs: StateFlow<List<ProxyConfig>> = _configs.asStateFlow()
 
@@ -452,6 +461,7 @@ class ConfigStore private constructor(context: Context) {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_AUTH_IDENTIFIER = "auth_identifier"
         private const val KEY_AUTH_DISPLAY_NAME = "auth_display_name"
+        private const val KEY_GUEST_MODE = "guest_mode"
         private const val KEY_CONFIGS = "configs"
         private const val KEY_SUBS = "subscriptions"
         private const val KEY_FRAGMENT = "fragment_enabled"
