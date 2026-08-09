@@ -237,7 +237,10 @@ object ConfigBuilder {
 
         when (config.security) {
             "reality" -> stream.put("security", "reality").put("realitySettings", JSONObject()
-                .put("serverName", config.sni).put("publicKey", config.publicKey)
+                .put("serverName", config.sni.ifEmpty {
+                    config.host.substringBefore(",").trim().ifEmpty { config.address }
+                })
+                .put("publicKey", config.publicKey)
                 .put("shortId", config.shortId).put("fingerprint", config.fingerprint).put("spiderX", "/"))
             "tls" -> {
                 val tls = JSONObject()
