@@ -1973,12 +1973,7 @@ private fun ConnectionScreen(
                     }
                 }
 
-                val globeStyle by store.globeStyle.collectAsState()
-                if (globeStyle == "dots") {
-                    DotGlobeSection(Modifier.weight(1f).fillMaxWidth())
-                } else {
-                    EarthSection(Modifier.weight(1f).fillMaxWidth())
-                }
+                CoreCubeSection(Modifier.weight(1f).fillMaxWidth())
             }
         }
     }
@@ -3071,7 +3066,6 @@ private fun SettingsScreen(
     val autoReconnect by store.autoReconnect.collectAsState()
     val mux by store.mux.collectAsState()
     val muxConcurrency by store.muxConcurrency.collectAsState()
-    val globeStyle by store.globeStyle.collectAsState()
     val settingsContext = androidx.compose.ui.platform.LocalContext.current
     val usage by UsageStore.usage.collectAsState()
     val allTime = remember(usage) { UsageStore.totalAll(usage) }
@@ -3484,7 +3478,6 @@ private val TelegramIcon: ImageVector =
 private fun ThemeSettingsScreen(store: ConfigStore, modifier: Modifier = Modifier) {
     val t = stringsFn()
     val themeMode by store.themeMode.collectAsState()
-    val globeStyle by store.globeStyle.collectAsState()
     val accentTheme by store.accentTheme.collectAsState()
 
     Column(
@@ -3544,21 +3537,6 @@ private fun ThemeSettingsScreen(store: ConfigStore, modifier: Modifier = Modifie
             )
         }
 
-        Text(t("globe_style_title"), style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlobeStyleOption(
-                label = t("globe_style_filled"),
-                selected = globeStyle == "filled",
-                onClick = { store.setGlobeStyle("filled") },
-                modifier = Modifier.weight(1f)
-            )
-            GlobeStyleOption(
-                label = t("globe_style_dots"),
-                selected = globeStyle == "dots",
-                onClick = { store.setGlobeStyle("dots") },
-                modifier = Modifier.weight(1f)
-            )
-        }
     }
 }
 
@@ -5037,35 +5015,6 @@ private fun SettingRow(
         }
         Spacer(Modifier.width(16.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun GlobeStyleOption(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val border = if (selected) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-    else Color.Transparent
-    Box(
-        modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(bg)
-            .border(BorderStroke(if (selected) 1.5.dp else 1.dp, border), RoundedCornerShape(14.dp))
-            .clickable { onClick() }
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-        )
     }
 }
 
