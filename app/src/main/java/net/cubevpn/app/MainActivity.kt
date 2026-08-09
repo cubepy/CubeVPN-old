@@ -111,6 +111,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Schedule
@@ -777,6 +778,7 @@ private enum class AuthStep { IDENTIFIER, OTP }
 @Composable
 private fun AuthGate(store: ConfigStore, onSkip: () -> Unit) {
     val t = stringsFn()
+    val lang = LocalLang.current
     var step by remember { mutableStateOf(AuthStep.IDENTIFIER) }
     var identifier by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
@@ -836,6 +838,18 @@ private fun AuthGate(store: ConfigStore, onSkip: () -> Unit) {
                     }
                 }
             )
+        }
+
+        TextButton(
+            onClick = { store.setLang(if (lang == Lang.FA) Lang.EN else Lang.FA) },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Icon(Icons.Filled.Language, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(if (lang == Lang.FA) "English" else "فارسی")
         }
     }
 }
