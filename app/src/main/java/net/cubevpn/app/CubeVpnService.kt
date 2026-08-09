@@ -116,7 +116,12 @@ class CubeVpnService : VpnService() {
         Gozarcore.setAssetPath(dir.absolutePath)
     }
 
-    private fun applyPerApp(builder: Builder) {
+    /**
+     * @param excludeSystemDownloader Only true for the live tunnel. enterKillSwitch() also calls
+     * this to build its all-blocking VPN, whose entire purpose is to leak nothing — exempting the
+     * downloader there would let any app's Download Manager traffic bypass the kill switch.
+     */
+    private fun applyPerApp(builder: Builder, excludeSystemDownloader: Boolean = true) {
         val store = ConfigStore.get(applicationContext)
         val mode = store.perAppMode.value
         val list = store.perAppList.value
@@ -125,7 +130,7 @@ class CubeVpnService : VpnService() {
             PerAppMode.ALLOWLIST -> {
                 if (list.isEmpty()) {
                     runCatching { builder.addDisallowedApplication(packageName) }
-                    excludeSystemDownloader(builder)
+                    if (excludeSystemDownloader) excludeSystemDownloader(builder)
                 } else {
                     // addAllowedApplication and addDisallowedApplication can't both be called on
                     // the same Builder — with an explicit allowlist, anything not on it (system
@@ -139,21 +144,22 @@ class CubeVpnService : VpnService() {
                 (list + packageName).forEach { pkg ->
                     runCatching { builder.addDisallowedApplication(pkg) }
                 }
-                excludeSystemDownloader(builder)
+                if (excludeSystemDownloader) excludeSystemDownloader(builder)
             }
             PerAppMode.OFF -> {
                 runCatching { builder.addDisallowedApplication(packageName) }
-                excludeSystemDownloader(builder)
+                if (excludeSystemDownloader) excludeSystemDownloader(builder)
             }
         }
     }
 
     /**
-     * Keeps Android's own Download Manager off the tunnel. Otherwise an in-app update download
-     * (UpdateInstaller, via DownloadManager) routes through the VPN like everything else, and a
-     * multi-ten-megabyte transfer stalling near the end on an unstable/loaded tunnel is exactly
-     * what "stuck at 99%" looks like. No privacy downside: this is the OS's own download plumbing
-     * for a transfer the user already explicitly asked for, not a user-facing app.
+     * Keeps Android's own Download Manager off the (live) tunnel. Otherwise an in-app update
+     * download (UpdateInstaller, via DownloadManager) routes through the VPN like everything
+     * else, and a multi-ten-megabyte transfer stalling near the end on an unstable/loaded tunnel
+     * is exactly what "stuck at 99%" looks like. No privacy downside there: it's the OS's own
+     * download plumbing for a transfer the user already explicitly asked for, not a user-facing
+     * app — but this must never apply to the kill-switch's blocking VPN (see applyPerApp above).
      */
     private fun excludeSystemDownloader(builder: Builder) {
         runCatching { builder.addDisallowedApplication("com.android.providers.downloads") }
@@ -215,7 +221,7 @@ class CubeVpnService : VpnService() {
             .addAddress("10.10.0.2", 32)
             .addRoute("0.0.0.0", 0)
             .addRoute("::", 0)
-        applyPerApp(b)
+        applyPerApp(b, excludeSystemDownloader = false)
         blockFd = runCatching { b.establish() }.getOrNull()
         VpnBridge.sendError(applicationContext, reason)
         runCatching {
