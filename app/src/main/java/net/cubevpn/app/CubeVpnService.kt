@@ -125,7 +125,11 @@ class CubeVpnService : VpnService() {
             PerAppMode.ALLOWLIST -> {
                 if (list.isEmpty()) {
                     runCatching { builder.addDisallowedApplication(packageName) }
+                    excludeSystemDownloader(builder)
                 } else {
+                    // addAllowedApplication and addDisallowedApplication can't both be called on
+                    // the same Builder — with an explicit allowlist, anything not on it (system
+                    // downloads included) is already excluded from the tunnel by default.
                     list.forEach { pkg ->
                         runCatching { builder.addAllowedApplication(pkg) }
                     }
@@ -135,11 +139,24 @@ class CubeVpnService : VpnService() {
                 (list + packageName).forEach { pkg ->
                     runCatching { builder.addDisallowedApplication(pkg) }
                 }
+                excludeSystemDownloader(builder)
             }
             PerAppMode.OFF -> {
                 runCatching { builder.addDisallowedApplication(packageName) }
+                excludeSystemDownloader(builder)
             }
         }
+    }
+
+    /**
+     * Keeps Android's own Download Manager off the tunnel. Otherwise an in-app update download
+     * (UpdateInstaller, via DownloadManager) routes through the VPN like everything else, and a
+     * multi-ten-megabyte transfer stalling near the end on an unstable/loaded tunnel is exactly
+     * what "stuck at 99%" looks like. No privacy downside: this is the OS's own download plumbing
+     * for a transfer the user already explicitly asked for, not a user-facing app.
+     */
+    private fun excludeSystemDownloader(builder: Builder) {
+        runCatching { builder.addDisallowedApplication("com.android.providers.downloads") }
     }
 
     private fun startPolling() {
