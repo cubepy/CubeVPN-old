@@ -178,7 +178,7 @@ private object EarthMask {
 }
 
 @Composable
-private fun globeFrameRateModifier(): Modifier {
+internal fun globeFrameRateModifier(): Modifier {
     return if (Build.VERSION.SDK_INT >= 35) {
         Modifier.composed {
             val view = LocalView.current
