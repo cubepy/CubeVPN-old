@@ -33,15 +33,13 @@ data class FetchResult(
 object SubscriptionFetcher {
 
     /**
-     * Panels pick the response format from the User-Agent, and an unrecognized one is not a
-     * neutral choice — it's the fallback bucket. Sending "CubeVPN" got us a JSON array of whole
-     * Xray configs (or Clash YAML elsewhere) instead of the `vless://` list this app parses, so
-     * subscriptions downloaded fine and then yielded zero servers. Identifying as v2rayNG gets
-     * the plain link list every panel agrees on; v2rayN-style base64 is handled too, so both of
-     * the common link formats work. Don't change this to a CubeVPN-branded string without
-     * teaching the parser Clash/sing-box first.
+     * Panels pick the response format from the User-Agent, and an unrecognized agent lands in
+     * whatever bucket the panel considers default. Deliberately unversioned: a version makes
+     * panels assume a client new enough for the JSON-subscription format, which is how
+     * "v2rayNG/1.8.23" started getting JSON after one panel's update. [JsonSubscription] covers
+     * us either way now, so this only picks the format least likely to need it.
      */
-    private const val SUB_USER_AGENT = "v2rayNG/1.8.23"
+    private const val SUB_USER_AGENT = "v2rayNG"
 
     suspend fun fetch(url: String, source: ConfigSource = ConfigSource.PERSONAL): List<ProxyConfig> =
         fetchFull(url, source).configs
@@ -61,11 +59,15 @@ object SubscriptionFetcher {
                 val body = conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
                 val userInfo = parseUserInfo(conn.getHeaderField("subscription-userinfo"))
                 val text = decodeMaybeBase64(body)
-                val configs = text.lineSequence()
+                val links = text.lineSequence()
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .mapNotNull { ConfigParser.parse(it, source) }
                     .toList()
+                // Panels serve links to some clients and a JSON array of whole Xray configs to
+                // others, and they change their minds across panel updates — so accept both
+                // rather than betting the import on which one we're handed today.
+                val configs = links.ifEmpty { JsonSubscription.parse(text, source) }
                 FetchResult(configs, userInfo)
             } finally {
                 conn.disconnect()
