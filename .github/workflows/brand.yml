@@ -1,0 +1,99 @@
+name: Build brand
+
+# Builds one reseller's branded app, or all of them, on the self-hosted runner set up by
+# tools/brand/setup-runner.sh.
+#
+# Nothing about a brand lives in this repository. The brand files, the logos and the signing
+# keys all sit in /var/lib/cubevpn-brands on the build machine, and the workflow only names
+# which one to build. That is what keeps a reseller's details and — far more importantly —
+# their signing key out of GitHub entirely.
+
+on:
+  workflow_dispatch:
+    inputs:
+      brand:
+        description: 'Brand slug, or "all" to rebuild every brand on the runner'
+        required: true
+        default: all
+      version:
+        description: 'Version name (blank: the brand file, then the latest tag)'
+        required: false
+
+jobs:
+  build:
+    # brand-builder is the label setup-runner.sh registers. GitHub's hosted runners cannot run
+    # this job at all: the brand files it needs are not in the checkout.
+    runs-on: [self-hosted, linux, brand-builder]
+    env:
+      BRANDS_DIR: /var/lib/cubevpn-brands
+      BRAND_KEYSTORE_DIR: /var/lib/cubevpn-brands/keystores
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Point Gradle at the SDK
+        run: |
+          echo "sdk.dir=${ANDROID_HOME:-/opt/android-sdk}" > local.properties
+          chmod +x gradlew tools/brand/build-brand.sh
+
+      - name: Build
+        env:
+          ANDROID_HOME: /opt/android-sdk
+          ANDROID_SDK_ROOT: /opt/android-sdk
+          BRAND_DIST_DIR: ${{ github.workspace }}/dist
+        run: |
+          set -euo pipefail
+          want='${{ inputs.brand }}'
+          if [ "$want" = "all" ]; then
+            files=("$BRANDS_DIR"/*.properties)
+            [ -e "${files[0]}" ] || { echo "::error::no brand files in $BRANDS_DIR"; exit 1; }
+          else
+            f="$BRANDS_DIR/$want.properties"
+            [ -f "$f" ] || { echo "::error::$f not found on this runner"; exit 1; }
+            files=("$f")
+          fi
+
+          # One brand failing must not silently skip the rest, and must not look like success.
+          failed=()
+          for f in "${files[@]}"; do
+            echo "::group::$(basename "$f" .properties)"
+            if [ -n '${{ inputs.version }}' ]; then
+              RELEASE_VERSION='${{ inputs.version }}' tools/brand/build-brand.sh "$f" || failed+=("$f")
+            else
+              tools/brand/build-brand.sh "$f" || failed+=("$f")
+            fi
+            echo "::endgroup::"
+          done
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::failed: ${failed[*]}"
+            exit 1
+          fi
+
+      - name: Publish
+        # The hook decides where builds go; it is this machine's business, not the repository's.
+        # No upload-artifact anywhere in this file on purpose: three APKs are ~280 MB, and the
+        # free artifact allowance is 500 MB total.
+        run: |
+          set -euo pipefail
+          hook="$BRANDS_DIR/publish.sh"
+          [ -x "$hook" ] || { echo "no publish hook; builds left in dist/"; exit 0; }
+          for d in dist/*/; do
+            slug="$(basename "$d")"
+            apk="$(ls "$d"/*-universal-release.apk 2>/dev/null | head -1 || true)"
+            [ -n "$apk" ] || continue
+            # …/OGVPN-v1.4.3-universal-release.apk → 1.4.3
+            version="$(basename "$apk" | sed -n 's/.*-v\([0-9][^-]*\)-universal.*/\1/p')"
+            "$hook" "$slug" "$version" "$PWD/$d"
+          done
+
+      - name: Clean the workspace
+        # The runner is a long-lived machine, not a fresh container: last week's 280 MB of APKs
+        # would still be here, and so would a brand's icons if a build died before its own
+        # cleanup ran.
+        if: always()
+        run: |
+          rm -rf dist local.properties
+          git checkout -- app/src/main/res 2>/dev/null || true
+          git clean -fdq app/src/main/res 2>/dev/null || true

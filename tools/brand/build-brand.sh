@@ -21,7 +21,9 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BRAND_FILE="$(cd "$(dirname "$BRAND_FILE")" && pwd)/$(basename "$BRAND_FILE")"
 BRAND_DIR="$(dirname "$BRAND_FILE")"
-KEYSTORE_DIR="$ROOT/tools/brand/keystores"
+# Both of these move off the checkout on a build server: the keys live in a directory that
+# outlives any one clone, and the output goes wherever that machine serves downloads from.
+KEYSTORE_DIR="${BRAND_KEYSTORE_DIR:-$ROOT/tools/brand/keystores}"
 RES_DIR="$ROOT/app/src/main/res"
 
 # Read a key from the brand file. Values may contain spaces and non-ASCII.
@@ -105,7 +107,9 @@ trap cleanup EXIT
 # Non-ASCII cannot survive a plain -P (the Gradle client decodes argv with the platform
 # charset), so the app name travels base64-encoded. See brandProp() in app/build.gradle.kts.
 NAME_B64="$(printf '%s' "$APP_NAME" | base64 | tr -d '\n')"
-VERSION="$(prop RELEASE_VERSION)"; VERSION="${VERSION:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}"
+# A caller may pin the version (the CI workflow does); otherwise the brand file, then the tag.
+VERSION="${RELEASE_VERSION:-$(prop RELEASE_VERSION)}"
+VERSION="${VERSION:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')}"
 VERSION="${VERSION:-1.0.0}"
 
 echo "==> building $SLUG v$VERSION"
@@ -129,7 +133,7 @@ KEY_PASSWORD="$PASS" \
     -PBRAND_KEY="$BRAND_KEY"
 
 # --- collect + verify ----------------------------------------------------------------------
-OUT="$ROOT/dist/$SLUG"
+OUT="${BRAND_DIST_DIR:-$ROOT/dist}/$SLUG"
 rm -rf "$OUT"; mkdir -p "$OUT"
 cp app/build/outputs/apk/release/*.apk "$OUT/"
 

@@ -169,6 +169,40 @@ for trials and never for billing.
 
 Leave it blank for every paying brand.
 
+## Building on your own server
+
+Every brand is a separate build, and on a private repository GitHub's runners are billed by
+the minute. `tools/brand/setup-runner.sh` moves the work onto a machine you already own, where
+the minutes are free:
+
+```bash
+sudo tools/brand/setup-runner.sh --repo cubepy/CubeVPN --token <registration token>
+```
+
+The token comes from Settings → Actions → Runners → New self-hosted runner, and expires in an
+hour. The script installs a JDK, the Android SDK, a dedicated unprivileged account, and the
+runner as a systemd service.
+
+Brands live on that machine, not in this repository:
+
+```
+/var/lib/cubevpn-brands/
+    ogvpn.properties        one per reseller, plus their logo
+    keystores/              signing keys, generated on first build
+    publish.sh              where finished APKs go; you fill this in
+```
+
+That split is the point. The signing keys never become GitHub secrets — they sit in a
+directory the runner reads directly, so a brand's key never leaves the machine that made it.
+
+Then Actions → **Build brand** → Run workflow, and give it a slug, or `all` to rebuild every
+brand for a new app version. Finished builds are handed to `publish.sh`; the workflow uploads
+no artifacts at all, because three APKs are about 280 MB and the free artifact allowance is
+500 MB in total.
+
+One rule that comes with a self-hosted runner: never enable one on a public repository.
+Anyone who opens a pull request would be running their own code on your server.
+
 ## What this deliberately doesn't do yet
 
 - **No build service.** Builds are run by hand from this repo. Phase 4 of the plan moves this
