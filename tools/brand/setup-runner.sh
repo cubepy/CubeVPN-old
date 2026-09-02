@@ -56,9 +56,28 @@ fi
 
 say() { printf '\n==> %s\n' "$1"; }
 
+# --- room to work ---------------------------------------------------------------------------
+# The SDK is about 5 GB, the runner another 400 MB, and a build's Gradle cache and workspace a
+# few more. Finding that out halfway through — as a tar dying mid-pipe and curl reporting a
+# write failure — is a much worse way to learn it than being told here.
+need_space() {
+    local path="$1" want_gb="$2" free_gb
+    free_gb="$(df -BG --output=avail "$path" 2>/dev/null | tail -1 | tr -dc '0-9')"
+    [ -n "$free_gb" ] || return 0
+    if [ "$free_gb" -lt "$want_gb" ]; then
+        echo "not enough free space on $path: ${free_gb}G available, ${want_gb}G needed" >&2
+        echo "free some up and run this again — it picks up where it left off" >&2
+        exit 1
+    fi
+}
+
 # --- packages -------------------------------------------------------------------------------
 # python3-pil is make_icons.py's Pillow; without it every build fails at the icon step rather
 # than at setup, which is a much worse place to find out.
+say "space"
+need_space / 15
+df -h / | tail -1 | awk '{print "    " $4 " free on /"}'
+
 say "packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -123,9 +142,24 @@ if [ ! -f "$RUNNER_DIR/config.sh" ]; then
     VER="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest \
            | grep -m1 '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')"
     [ -n "$VER" ] || { echo "could not determine the latest runner version" >&2; exit 1; }
+    need_space "$RUNNER_HOME" 2
     mkdir -p "$RUNNER_DIR"
-    curl -fsSL "https://github.com/actions/runner/releases/download/v${VER}/actions-runner-linux-x64-${VER}.tar.gz" \
-        | tar xz -C "$RUNNER_DIR"
+    # Downloaded to a file rather than piped into tar: a pipe reports only that curl could not
+    # write, which is the same message whether the download failed, the disk filled or the
+    # archive was corrupt.
+    tarball="$(mktemp /tmp/actions-runner.XXXXXX.tar.gz)"
+    if ! curl -fsSL -o "$tarball" \
+        "https://github.com/actions/runner/releases/download/v${VER}/actions-runner-linux-x64-${VER}.tar.gz"; then
+        rm -f "$tarball"
+        echo "downloading the runner failed — check this machine can reach github.com" >&2
+        exit 1
+    fi
+    if ! tar xzf "$tarball" -C "$RUNNER_DIR"; then
+        rm -f "$tarball"
+        echo "unpacking the runner failed — almost always a full disk; check df -h" >&2
+        exit 1
+    fi
+    rm -f "$tarball"
     # The runner is a .NET application and needs ICU; which package provides it differs by
     # distribution, so use the script GitHub ships with it rather than guessing a name.
     if [ -x "$RUNNER_DIR/bin/installdependencies.sh" ]; then
