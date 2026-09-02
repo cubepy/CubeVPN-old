@@ -46,6 +46,7 @@ TON="$(prop BRAND_TON_WALLET)"
 UPDATE_URL="$(prop UPDATE_URL)"
 ICON_BG="$(prop BRAND_ICON_BACKGROUND)"; ICON_BG="${ICON_BG:-#6D28D9}"
 LOGO="$(prop BRAND_LOGO)"
+LOGO_SCALE="$(prop BRAND_LOGO_SCALE)"; LOGO_SCALE="${LOGO_SCALE:-0.60}"
 
 case "$APP_ID" in
     *.*) ;;
@@ -83,7 +84,7 @@ if [ -n "$LOGO" ]; then
     LOGO_PATH="$BRAND_DIR/$LOGO"
     [ -f "$LOGO_PATH" ] || { echo "logo not found: $LOGO_PATH" >&2; exit 2; }
     RESTORE_RES=1
-    python3 "$ROOT/tools/brand/make_icons.py" --logo "$LOGO_PATH" --background "$ICON_BG" --res "$RES_DIR"
+    python3 "$ROOT/tools/brand/make_icons.py" --logo "$LOGO_PATH" --background "$ICON_BG" --scale "$LOGO_SCALE" --res "$RES_DIR"
 else
     echo "==> no BRAND_LOGO set, keeping the default icon"
 fi

@@ -31,7 +31,7 @@ except ImportError:
 DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
 ADAPTIVE_DP = 108
 LEGACY_DP = 48
-LOGO_FRACTION = 0.60  # of the 108dp canvas — inside the 72dp safe zone
+DEFAULT_LOGO_FRACTION = 0.60  # of the 108dp canvas — inside the 72dp safe zone
 
 BACKGROUND_XML = """<?xml version="1.0" encoding="utf-8"?>
 <!-- Generated per brand by tools/brand/make_icons.py -->
@@ -90,6 +90,12 @@ def main():
     ap.add_argument("--logo", required=True, help="square PNG, ideally with a transparent background")
     ap.add_argument("--background", default="#6D28D9", help="icon background colour, e.g. #6D28D9")
     ap.add_argument("--res", required=True, help="path to app/src/main/res")
+    ap.add_argument(
+        "--scale", type=float, default=DEFAULT_LOGO_FRACTION,
+        help="logo size as a fraction of the icon canvas. The 0.60 default keeps a "
+             "transparent mark inside the safe zone; artwork that is already a finished "
+             "circular icon on its own dark ground wants 1.0 so the launcher's mask crops "
+             "it directly instead of shrinking it onto a coloured square.")
     args = ap.parse_args()
 
     bg_rgb = parse_color(args.background)
@@ -101,12 +107,12 @@ def main():
         legacy_px = round(LEGACY_DP * factor)
 
         # Adaptive foreground: logo on transparency, the background layer shows through.
-        fg = centred(adaptive_px, fit(logo, round(adaptive_px * LOGO_FRACTION)))
+        fg = centred(adaptive_px, fit(logo, round(adaptive_px * args.scale)))
         write(fg, args.res, "drawable-" + density, "ic_launcher_foreground")
         written += 1
 
         # Legacy square: same logo, but the background has to be baked in.
-        square = centred(legacy_px, fit(logo, round(legacy_px * 0.70)), bg_rgb + (255,))
+        square = centred(legacy_px, fit(logo, round(legacy_px * min(1.0, args.scale + 0.10))), bg_rgb + (255,))
         write(square, args.res, "mipmap-" + density, "ic_launcher")
         written += 1
 
@@ -123,12 +129,13 @@ def main():
     if os.path.exists(vector):
         os.remove(vector)
 
+    os.makedirs(os.path.join(args.res, "drawable"), exist_ok=True)
     bg_path = os.path.join(args.res, "drawable", "ic_launcher_background.xml")
     with open(bg_path, "w", encoding="utf-8") as f:
         f.write(BACKGROUND_XML.format(color="#%02X%02X%02X" % bg_rgb))
 
-    print("icons: wrote %d bitmaps across %d densities, background %s"
-          % (written, len(DENSITIES), "#%02X%02X%02X" % bg_rgb))
+    print("icons: wrote %d bitmaps across %d densities, logo at %d%%, background %s"
+          % (written, len(DENSITIES), round(args.scale * 100), "#%02X%02X%02X" % bg_rgb))
 
 
 if __name__ == "__main__":
