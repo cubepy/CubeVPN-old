@@ -200,6 +200,28 @@ brand for a new app version. Finished builds are handed to `publish.sh`; the wor
 no artifacts at all, because three APKs are about 280 MB and the free artifact allowance is
 500 MB in total.
 
+### Sharing the machine with something else
+
+A build is about five minutes of every core it can reach, and the obvious server to put it on
+is one already answering Telegram webhooks. The setup script writes a systemd drop-in so that
+never becomes a choice between the two:
+
+```
+CPUWeight=20     under contention the scheduler prefers everything else
+CPUQuota=…       half the cores by default; --cpu-quota to change it
+MemoryMax=6G     --memory-max to change it
+IOWeight=20
+```
+
+`MemoryMax` is the one that matters most. Gradle and the Kotlin compiler together can reach
+for six or seven gigabytes, and without a cgroup limit the kernel's OOM killer chooses its
+victim by its own accounting — which on a database server is usually MySQL rather than the
+build. With the limit, a build that overruns is the process that dies.
+
+Between builds the runner costs almost nothing: one .NET process holding a long poll to
+GitHub, a couple of hundred megabytes of RAM and no measurable CPU. The load is only while a
+build runs, and a build only runs when you start one.
+
 One rule that comes with a self-hosted runner: never enable one on a public repository.
 Anyone who opens a pull request would be running their own code on your server.
 

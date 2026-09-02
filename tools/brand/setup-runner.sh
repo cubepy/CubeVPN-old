@@ -22,6 +22,11 @@ REPO=""
 TOKEN=""
 RUNNER_USER="cubevpn-runner"
 LABELS="brand-builder"
+# How much of the machine a build may take. This server has other work on it — Telegram
+# webhooks that time out if PHP does not answer quickly — so the build is capped rather than
+# left to fill the box. Percentages are of one core: 150 means one and a half cores.
+CPU_QUOTA=""          # default: half the cores, computed below
+MEMORY_MAX="6G"
 BRANDS_DIR="/var/lib/cubevpn-brands"
 SDK_DIR="/opt/android-sdk"
 # Any recent build of the command-line tools works — sdkmanager updates itself and the package
@@ -34,6 +39,8 @@ while [ $# -gt 0 ]; do
         --token)  TOKEN="$2"; shift 2 ;;
         --user)   RUNNER_USER="$2"; shift 2 ;;
         --labels) LABELS="$2"; shift 2 ;;
+        --cpu-quota)  CPU_QUOTA="$2"; shift 2 ;;
+        --memory-max) MEMORY_MAX="$2"; shift 2 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -149,6 +156,52 @@ if ! ls /etc/systemd/system/actions.runner.*.service >/dev/null 2>&1; then
 fi
 (cd "$RUNNER_DIR" && ./svc.sh start >/dev/null)
 echo "    service running"
+
+# --- keep builds off the rest of the server ------------------------------------------------------
+# A build is five minutes of every core it can get, and this machine answers Telegram webhooks
+# the rest of the time. Three limits, each for a different failure:
+#
+#   CPUWeight   — under contention the scheduler prefers php-fpm. Not a cap: an idle machine
+#                 still gives the build everything, so builds do not get slower for nothing.
+#   CPUQuota    — a hard ceiling anyway, because "prefers" is not "guarantees" and a webhook
+#                 that waits 400ms has already timed out as far as Telegram is concerned.
+#   MemoryMax   — the important one. Gradle plus the Kotlin compiler can reach for 6-7 GB, and
+#                 without a cgroup limit the kernel's OOM killer picks a victim by its own
+#                 accounting — which on a database server is usually MySQL, not the build.
+#                 With this, a build that overruns is the thing that dies.
+say "build limits"
+if [ -z "$CPU_QUOTA" ]; then
+    CORES="$(nproc)"
+    CPU_QUOTA="$(( CORES * 50 ))%"     # half the machine
+fi
+UNIT="$(basename "$(ls /etc/systemd/system/actions.runner.*.service | head -1)")"
+mkdir -p "/etc/systemd/system/$UNIT.d"
+cat > "/etc/systemd/system/$UNIT.d/limits.conf" <<EOF
+[Service]
+CPUWeight=20
+CPUQuota=$CPU_QUOTA
+MemoryMax=$MEMORY_MAX
+IOWeight=20
+EOF
+systemctl daemon-reload
+systemctl restart "$UNIT"
+echo "    cpu $CPU_QUOTA, memory $MEMORY_MAX, low priority against everything else"
+
+# Gradle's own appetite, set per-machine rather than in the repository: a user-level
+# gradle.properties overrides the project's, so a laptop can keep the fast settings.
+say "gradle settings for this machine"
+sudo -u "$RUNNER_USER" -H mkdir -p "$RUNNER_HOME/.gradle"
+sudo -u "$RUNNER_USER" -H tee "$RUNNER_HOME/.gradle/gradle.properties" >/dev/null <<'EOF'
+# Written by setup-runner.sh. Overrides the project's gradle.properties on this machine only.
+org.gradle.jvmargs=-Xmx3072m -XX:+UseParallelGC -Dfile.encoding=UTF-8
+# Fewer compiler workers than cores, so a build cannot occupy the whole machine even before
+# the systemd quota starts refusing it time.
+org.gradle.workers.max=2
+# One JVM instead of a separate Kotlin daemon: slower per build, but it is the difference
+# between one process reaching for 3 GB and two reaching for 3 GB each.
+kotlin.compiler.execution.strategy=in-process
+EOF
+echo "    heap 3G, 2 workers, no separate Kotlin daemon"
 
 # --- optional publish hook -----------------------------------------------------------------------
 # The workflow calls this if it exists, with <slug> <version> <dist dir>. It stays on the server
