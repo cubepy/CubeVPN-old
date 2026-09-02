@@ -38,22 +38,9 @@ object AuthApi {
 
     private val BASE = BuildConfig.API_BASE_URL.trimEnd('/')
 
-    /**
-     * Which family of endpoints this build talks to.
-     *
-     * `/api` belongs to a tenant: it resolves one, opens their database and reads their customer
-     * table. A reseller who never bought a bot from us has none of that, so their build carries a
-     * brand key and talks to `/app` instead, where the request is identified by that key and the
-     * login code goes out through their own bot.
-     *
-     * Derived from the key rather than configured separately, because the two can only ever
-     * disagree by mistake: a build with a brand key has nothing to say to a tenant's endpoints.
-     */
-    private val PREFIX = if (Brand.key.isNotEmpty()) "/app" else "/api"
-
     suspend fun requestCode(identifier: String): AuthResult = withContext(Dispatchers.IO) {
         val body = JSONObject().put("identifier", identifier)
-        val res = postJson("$PREFIX/requestcode.php", body, token = null)
+        val res = postJson("/api/requestcode.php", body, token = null)
         if (res.optBoolean("ok", false)) {
             AuthResult.RequestCodeOk(res.optInt("cooldown_seconds", 60))
         } else {
@@ -63,7 +50,7 @@ object AuthApi {
 
     suspend fun verifyCode(identifier: String, code: String): AuthResult = withContext(Dispatchers.IO) {
         val body = JSONObject().put("identifier", identifier).put("code", code)
-        val res = postJson("$PREFIX/verifycode.php", body, token = null)
+        val res = postJson("/api/verifycode.php", body, token = null)
         if (res.optBoolean("ok", false)) {
             val token = res.optString("token")
             val u = res.optJSONObject("user")
@@ -85,7 +72,7 @@ object AuthApi {
     }
 
     suspend fun fetchAccount(token: String): AuthResult = withContext(Dispatchers.IO) {
-        val res = getJson("$PREFIX/accountme.php", token)
+        val res = getJson("/api/accountme.php", token)
         if (res.optBoolean("ok", false)) {
             val u = res.optJSONObject("user")
             val user = AuthUser(
@@ -117,7 +104,7 @@ object AuthApi {
     }
 
     suspend fun logout(token: String) = withContext(Dispatchers.IO) {
-        runCatching { postJson("$PREFIX/logout.php", JSONObject(), token) }
+        runCatching { postJson("/api/logout.php", JSONObject(), token) }
     }
 
     private fun errorFrom(res: JSONObject): AuthResult.Error =
