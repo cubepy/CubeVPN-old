@@ -119,6 +119,11 @@ if [ ! -f "$RUNNER_DIR/config.sh" ]; then
     mkdir -p "$RUNNER_DIR"
     curl -fsSL "https://github.com/actions/runner/releases/download/v${VER}/actions-runner-linux-x64-${VER}.tar.gz" \
         | tar xz -C "$RUNNER_DIR"
+    # The runner is a .NET application and needs ICU; which package provides it differs by
+    # distribution, so use the script GitHub ships with it rather than guessing a name.
+    if [ -x "$RUNNER_DIR/bin/installdependencies.sh" ]; then
+        "$RUNNER_DIR/bin/installdependencies.sh" >/dev/null
+    fi
     chown -R "$RUNNER_USER":"$RUNNER_USER" "$RUNNER_DIR"
     echo "    runner v$VER downloaded"
 else
