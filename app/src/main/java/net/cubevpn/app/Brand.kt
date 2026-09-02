@@ -23,6 +23,18 @@ object Brand {
     /** Blank for any brand that doesn't take TON donations — the card hides itself then. */
     val tonWallet: String = BuildConfig.BRAND_TON_WALLET.trim()
 
+    /**
+     * Whether this build asks anyone for money on its own behalf.
+     *
+     * The donation screen belongs to whoever built the app, and a reseller's copy must not
+     * carry it: their users would be looking at a stranger's card number, or — worse, and what
+     * actually shipped once — at a placeholder row of zeros above a plea written in someone
+     * else's voice. Rather than a flag that can disagree with reality, this asks whether there
+     * is any account to donate to at all, which for a reseller build there never is.
+     */
+    val donationsEnabled: Boolean =
+        BuildConfig.DONATION_CARD_NUMBER.isNotBlank() || tonWallet.isNotEmpty()
+
     val botHandle: String get() = "@$bot"
     val supportHandle: String get() = "@$support"
     val channelHandle: String get() = "@$channel"
