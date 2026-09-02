@@ -20,7 +20,22 @@ object UpdateChecker {
         data object Failed : Result
     }
 
+    /**
+     * A brand's own update feed, served by its panel. Set per build; when it's blank the
+     * GitHub release feed below is used instead, which is how CubeVPN's own builds work.
+     *
+     * Expected JSON — `abis` is optional and wins over `url` when this device matches:
+     * ```
+     * {"version":"1.4.4","url":"https://…/App-universal.apk",
+     *  "abis":{"arm64-v8a":"https://…/App-arm64-v8a.apk"}}
+     * ```
+     * Because the panel serves it, a reseller whose subscription has lapsed simply stops
+     * answering — no separate switch to maintain.
+     */
+    private val FEED = BuildConfig.UPDATE_URL
+
     suspend fun check(currentVersion: String): Result = withContext(Dispatchers.IO) {
+        if (FEED.isNotBlank()) return@withContext checkFeed(currentVersion)
         if (REPO.isBlank()) return@withContext Result.Failed
         try {
             val conn = (URL(API).openConnection() as HttpURLConnection).apply {
@@ -43,6 +58,38 @@ object UpdateChecker {
                 isNewer(tag, currentVersion) -> Result.Available(tag, apkAssetUrl(o) ?: pageUrl)
                 else -> Result.UpToDate
             }
+        } catch (e: Exception) {
+            Result.Failed
+        }
+    }
+
+    private suspend fun checkFeed(currentVersion: String): Result = withContext(Dispatchers.IO) {
+        try {
+            val conn = (URL(FEED).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10000
+                readTimeout = 10000
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", Brand.appName)
+                setRequestProperty("Accept", "application/json")
+            }
+            val body = try {
+                conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+            } finally {
+                conn.disconnect()
+            }
+            val o = JSONObject(body)
+            val version = o.optString("version").removePrefix("v").removePrefix("V").trim()
+            if (version.isEmpty()) return@withContext Result.Failed
+            if (!isNewer(version, currentVersion)) return@withContext Result.UpToDate
+
+            val abis = o.optJSONObject("abis")
+            val forThisDevice = abis?.let {
+                android.os.Build.SUPPORTED_ABIS.firstNotNullOfOrNull { abi ->
+                    it.optString(abi).takeIf { url -> url.isNotBlank() }
+                }
+            }
+            val url = forThisDevice ?: o.optString("url").takeIf { it.isNotBlank() }
+            if (url == null) Result.Failed else Result.Available(version, url)
         } catch (e: Exception) {
             Result.Failed
         }

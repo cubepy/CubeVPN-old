@@ -106,6 +106,9 @@ android {
         buildConfigField("String", "API_BASE_URL", bcString(brandProp("API_BASE_URL", "")))
         // "owner/repo" for the About screen's update checker. Leave blank to disable.
         buildConfigField("String", "UPDATE_REPO", bcString(brandProp("UPDATE_REPO", "")))
+        // A brand's own update feed (its panel). Takes precedence over UPDATE_REPO; see
+        // UpdateChecker for the JSON shape.
+        buildConfigField("String", "UPDATE_URL", bcString(brandProp("UPDATE_URL", "")))
 
         // White-label identity. See Brand.kt — user-facing copy uses placeholders, never these
         // values directly. Blank falls back to CubeVPN's own, so a plain checkout is unchanged.

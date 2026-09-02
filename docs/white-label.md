@@ -94,6 +94,41 @@ Also tell the reseller three things about running it:
 
 ---
 
+## Updates: the file is handed over once
+
+You send a reseller their APK **once**. After that, their customers update from inside the
+app, and the reseller never redistributes a file again.
+
+Set `UPDATE_URL` in the brand file to their panel's feed:
+
+```
+UPDATE_URL=https://panel.novaco.ir/api/appupdate.php
+```
+
+When you publish a new build for that brand, the build service writes one file on the panel:
+
+```
+storage/app-updates/<tenant id>.json
+{"version":"1.4.4",
+ "url":"https://…/Nova-v1.4.4-universal-release.apk",
+ "abis":{"arm64-v8a":"https://…-arm64-v8a-release.apk",
+         "armeabi-v7a":"https://…-armeabi-v7a-release.apk"}}
+```
+
+Every install of that brand picks it up on its next check, downloads the APK matching its own
+CPU, and installs over itself — the signing key is the same, so nothing is lost.
+
+Two things fall out of serving this from the panel rather than from a link you own:
+
+- **It's already gated.** A reseller whose CubeSaz subscription lapses stops answering here
+  too, so their app stops being offered updates at the same moment it stops signing anyone in.
+  There's no second switch to maintain.
+- **The APKs stay on a CDN.** The panel only says which version is current; the file itself is
+  served from the release host, so a popular brand's update doesn't run through the panel.
+
+Leave `UPDATE_URL` blank and the app falls back to the GitHub release feed in `UPDATE_REPO`,
+which is how CubeVPN's own builds work.
+
 ## Shipping an update to every brand
 
 An app update means rebuilding each brand — the APK is a compiled artifact, so there's no
@@ -112,8 +147,5 @@ resellers, and it's the thing worth automating first once there are more than a 
 
 - **No build service.** Builds are run by hand from this repo. Phase 4 of the plan moves this
   behind a button in the CubeSaz console.
-- **No update endpoint per brand.** The in-app updater still points wherever `UPDATE_REPO`
-  says. Until that's per-brand, a branded build either has no update channel or shares
-  CubeVPN's — set `UPDATE_REPO` deliberately per brand, or leave it blank.
 - **No accent colour per brand.** The icon background is branded; the in-app accent is still
   one of the three built-in themes the user picks.

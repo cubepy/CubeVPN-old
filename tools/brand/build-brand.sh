@@ -43,6 +43,7 @@ SUPPORT="$(prop BRAND_SUPPORT)"
 CHANNEL="$(prop BRAND_CHANNEL)"
 API_BASE_URL="$(need API_BASE_URL)"
 TON="$(prop BRAND_TON_WALLET)"
+UPDATE_URL="$(prop UPDATE_URL)"
 ICON_BG="$(prop BRAND_ICON_BACKGROUND)"; ICON_BG="${ICON_BG:-#6D28D9}"
 LOGO="$(prop BRAND_LOGO)"
 
@@ -117,7 +118,8 @@ KEY_PASSWORD="$PASS" \
     -PBRAND_SUPPORT="$SUPPORT" \
     -PBRAND_CHANNEL="$CHANNEL" \
     -PBRAND_TON_WALLET="$TON" \
-    -PAPI_BASE_URL="$API_BASE_URL"
+    -PAPI_BASE_URL="$API_BASE_URL" \
+    -PUPDATE_URL="$UPDATE_URL"
 
 # --- collect + verify ----------------------------------------------------------------------
 OUT="$ROOT/dist/$SLUG"
