@@ -50,8 +50,12 @@ jobs:
             files=("$BRANDS_DIR"/*.properties)
             [ -e "${files[0]}" ] || { echo "::error::no brand files in $BRANDS_DIR"; exit 1; }
           else
+            # Brand files are written in lower case by the "Configure build server" workflow,
+            # while a slug is normally typed the way it appears in file names (OGVPN). Match
+            # either rather than making the caller remember which.
             f="$BRANDS_DIR/$want.properties"
-            [ -f "$f" ] || { echo "::error::$f not found on this runner"; exit 1; }
+            [ -f "$f" ] || f="$BRANDS_DIR/$(echo "$want" | tr '[:upper:]' '[:lower:]').properties"
+            [ -f "$f" ] || { echo "::error::no brand file for '$want' on this runner; have: $(ls -1 "$BRANDS_DIR"/*.properties 2>/dev/null | xargs -r -n1 basename | tr '\n' ' ')"; exit 1; }
             files=("$f")
           fi
 
