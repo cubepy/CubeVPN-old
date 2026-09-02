@@ -331,6 +331,46 @@ panel.
 
 ---
 
+## 6. Sign-in removed (2026-09-02)
+
+The app signs nobody in. `POST /app/requestcode.php`, `POST
+/app/verifycode.php`, `GET /app/accountme.php` and `POST /app/provision.php`
+are **gone**, along with the login-code and session tables and the reseller's
+bot token.
+
+The reason is not technical. Taking a reseller's bot token means holding a
+credential to their live business, in our database and in every nightly dump,
+in order to send a six-digit code. The app already carries their brand and
+their logo on every screen — that is what the customer sees, and it is what
+the white-label promise was actually about. A credential we do not need is a
+liability taken on for nothing, so it is not taken.
+
+What that leaves under `app/`:
+
+| | |
+|---|---|
+| `GET /app/update.php` | the update feed, per brand, `X-Cube-Brand` |
+| `GET /platform_applicense.php?key=…` | the licence, unchanged |
+
+And the app itself: branded client, the customer pastes their own
+subscription link. No account, no services list, no bearer token, no `401`
+handling, no invite screen.
+
+**What the client should remove**: the sign-in screen and everything behind
+it, the "my services" list, and any handling of `identifier`, `code`, `token`,
+`services[]`, `invite_code` or `referral_count`. Rows 3–11 of the table in §2
+are all closed by deletion rather than by agreement.
+
+`brand_key` still rides `X-Cube-Brand`, now only on the update feed.
+`license_key` is unchanged.
+
+The package name is no longer asked for either: it is derived from the app's
+name (`com.<slug>.app`, uniquified) and shown to the reseller once, because it
+is permanent and its rules are not something a reseller has any reason to
+know.
+
+---
+
 *Server side lives in `cubepy/CubeSaz`: `src/Platform/AppBrands.php`,
 `app/{requestcode,verifycode,accountme}.php`, `app/lib/bootstrap.php`,
 `platform_applicense.php`. Behaviour is pinned by
