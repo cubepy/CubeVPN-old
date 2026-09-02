@@ -37,7 +37,7 @@ object UpdateNotifier {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "CubeVPN", NotificationManager.IMPORTANCE_DEFAULT)
+                NotificationChannel(CHANNEL_ID, Brand.appName, NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
         val title = Strings.get(lang, "update_available").format(version)

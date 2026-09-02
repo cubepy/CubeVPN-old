@@ -1,0 +1,110 @@
+name: Configure build server
+
+# Sets up the build machine without anyone having to open an SSH session.
+#
+# The runner installed by tools/brand/setup-runner.sh is on that machine, so a workflow is
+# already a way to run something there. This one is deliberately narrow: it writes two files
+# in /var/lib/cubevpn-brands and nothing else. It takes no arbitrary commands, because a
+# workflow on this repository runs on a server that also answers other people's Telegram
+# webhooks, and "run whatever I paste" is not a thing that should exist there.
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_root:
+        description: 'Directory this server serves downloads from, e.g. /var/www/html/downloads'
+        required: false
+      base_url:
+        description: 'URL that maps to it, e.g. https://panel.example.com/downloads'
+        required: false
+      brand_slug:
+        description: 'Slug of a brand to install, e.g. OGVPN (blank: skip)'
+        required: false
+      brand_file:
+        description: 'Contents of that brand.properties (blank: skip)'
+        required: false
+
+jobs:
+  configure:
+    runs-on: [self-hosted, linux, brand-builder]
+    env:
+      BRANDS_DIR: /var/lib/cubevpn-brands
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write the publish hook
+        if: inputs.web_root != '' && inputs.base_url != ''
+        env:
+          WEB_ROOT: ${{ inputs.web_root }}
+          BASE_URL: ${{ inputs.base_url }}
+        run: |
+          set -euo pipefail
+          # Validated before they are ever substituted into a script: these two become shell
+          # assignments, so anything that could close a quote or open a subshell is refused
+          # rather than escaped. Paths and URLs need none of those characters.
+          for v in "$WEB_ROOT" "$BASE_URL"; do
+            case "$v" in
+              *[!A-Za-z0-9:/._~-]*) echo "::error::'$v' contains a character not allowed here"; exit 1 ;;
+            esac
+          done
+
+          cat > "$BRANDS_DIR/publish.sh" <<HOOK
+          #!/usr/bin/env bash
+          # Written by the "Configure build server" workflow.
+          #   publish.sh <slug> <version> <dist dir>
+          set -euo pipefail
+          SLUG="\$1"; VERSION="\$2"; DIST="\$3"
+
+          WEB_ROOT=$WEB_ROOT
+          BASE_URL=$BASE_URL
+
+          mkdir -p "\$WEB_ROOT/\$SLUG"
+          cp "\$DIST"/*.apk "\$WEB_ROOT/\$SLUG/"
+
+          # The feed the app reads, written last: a half-copied set of APKs is never announced
+          # as the current version.
+          cat > "\$WEB_ROOT/\$SLUG/update.json" <<JSON
+          {"version":"\$VERSION",
+           "url":"\$BASE_URL/\$SLUG/\$SLUG-v\$VERSION-universal-release.apk",
+           "abis":{"arm64-v8a":"\$BASE_URL/\$SLUG/\$SLUG-v\$VERSION-arm64-v8a-release.apk",
+                   "armeabi-v7a":"\$BASE_URL/\$SLUG/\$SLUG-v\$VERSION-armeabi-v7a-release.apk"}}
+          JSON
+          echo "published \$SLUG v\$VERSION to \$WEB_ROOT/\$SLUG"
+          HOOK
+          chmod 750 "$BRANDS_DIR/publish.sh"
+
+          if ! mkdir -p "$WEB_ROOT" 2>/dev/null || [ ! -w "$WEB_ROOT" ]; then
+            echo "::warning::$(id -un) cannot write $WEB_ROOT — create it and chown it to $(id -un), or builds will succeed and publish nothing"
+          fi
+          echo "--- $BRANDS_DIR/publish.sh ---"
+          cat "$BRANDS_DIR/publish.sh"
+
+      - name: Install a brand
+        if: inputs.brand_slug != '' && inputs.brand_file != ''
+        env:
+          SLUG: ${{ inputs.brand_slug }}
+          BRAND_FILE: ${{ inputs.brand_file }}
+        run: |
+          set -euo pipefail
+          case "$SLUG" in
+            *[!A-Za-z0-9_-]*) echo "::error::slug may only contain letters, digits, - and _"; exit 1 ;;
+          esac
+          lower="$(echo "$SLUG" | tr '[:upper:]' '[:lower:]')"
+          printf '%s\n' "$BRAND_FILE" > "$BRANDS_DIR/$lower.properties"
+
+          # The logo travels in the repository rather than through an input: it is a few
+          # hundred kilobytes of PNG, and it is not secret. Asset files are named per brand
+          # so two brands' logos cannot collide in one flat directory.
+          if [ -d "tools/brand/assets/$lower" ]; then
+            cp "tools/brand/assets/$lower"/* "$BRANDS_DIR/"
+            echo "copied assets for $lower"
+          else
+            echo "::warning::no tools/brand/assets/$lower in the repository — the build will use the default icon unless a logo is already on the server"
+          fi
+
+          chmod 600 "$BRANDS_DIR/$lower.properties"
+          echo "--- $BRANDS_DIR/$lower.properties ---"
+          cat "$BRANDS_DIR/$lower.properties"
+          ls -1 "$BRANDS_DIR"

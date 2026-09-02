@@ -600,6 +600,34 @@ private fun CubeVpnWordmark(modifier: Modifier = Modifier, height: Dp = 34.dp, t
 }
 
 
+/**
+ * The whole app, for a promotional build whose time is up.
+ *
+ * There is no way past it on purpose — a trial that can be dismissed is not a trial — and it
+ * names the support account rather than a price, because the reseller who handed this out is
+ * the one their user should be talking to.
+ */
+@Composable
+private fun TrialOverScreen() {
+    val t = stringsFn()
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(t("trial_over_title"), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                t("trial_over_body"),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @Composable
 private fun WelcomeScreen(onDone: () -> Unit) {
     val t = stringsFn()
@@ -923,10 +951,10 @@ private fun LoginIdentifierScreen(
         )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            TextButton(onClick = { runCatching { uriHandler.openUri("https://t.me/cube_vpnn") } }) {
+            TextButton(onClick = { runCatching { uriHandler.openUri(Brand.channelUrl) } }) {
                 Text(t("login_open_channel"))
             }
-            TextButton(onClick = { runCatching { uriHandler.openUri("https://t.me/cubevvpn_bot") } }) {
+            TextButton(onClick = { runCatching { uriHandler.openUri(Brand.botUrl) } }) {
                 Text(t("login_open_bot"))
             }
         }
@@ -1107,7 +1135,9 @@ class MainActivity : ComponentActivity() {
                         val guestMode by store.guestMode.collectAsState()
                         Box {
                             if (startMain) {
-                                if (authToken != null || guestMode) {
+                                if (Brand.hasExpired) {
+                                    TrialOverScreen()
+                                } else if (authToken != null || guestMode || !Brand.accountsEnabled) {
                                     CubeVpnApp(store = store, onConnect = ::connectTo, onDisconnect = ::disconnect, onSwitch = ::switchTo)
                                 } else {
                                     AuthGate(store = store, onSkip = { store.setGuestMode(true) })
@@ -1864,34 +1894,37 @@ private fun ConnectionScreen(
                     }
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable { onOpenServices() },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // Purchased services come from the panel; without one there is nothing to list.
+                if (Brand.accountsEnabled) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { onOpenServices() },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                     ) {
-                        Icon(
-                            Icons.Filled.Bolt, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(t("my_services"), style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                if (serviceCount == 0) t("no_services_yet") else n(t("services_count").format(serviceCount)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Bolt, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
                             )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(t("my_services"), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    if (serviceCount == 0) t("no_services_yet") else n(t("services_count").format(serviceCount)),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Icon(Icons.Filled.ChevronRight, contentDescription = null)
                         }
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null)
                     }
                 }
 
@@ -3105,61 +3138,65 @@ private fun SettingsScreen(
         modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(t("account"), style = MaterialTheme.typography.titleMedium)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            if (authToken != null) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        localizeDigits(authIdentifier ?: "", lang),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { confirmLogout = true }) { Text(t("logout")) }
-                }
-            } else {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        t("services_login_needed"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { store.setGuestMode(false) }) { Text(t("login_title")) }
+        // Sign-in and the referral programme both live on the panel, so a build with no
+        // panel behind it hides them rather than offering a door that opens onto nothing.
+        if (Brand.accountsEnabled) {
+            Text(t("account"), style = MaterialTheme.typography.titleMedium)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                if (authToken != null) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            localizeDigits(authIdentifier ?: "", lang),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { confirmLogout = true }) { Text(t("logout")) }
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            t("services_login_needed"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { store.setGuestMode(false) }) { Text(t("login_title")) }
+                    }
                 }
             }
-        }
-        if (confirmLogout) {
-            AlertDialog(
-                onDismissRequest = { confirmLogout = false },
-                title = { Text(t("logout")) },
-                text = { Text(t("logout_confirm")) },
-                confirmButton = {
-                    TextButton(onClick = { confirmLogout = false; store.logout() }) { Text(t("logout")) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { confirmLogout = false }) { Text(t("cancel")) }
-                }
-            )
-        }
+            if (confirmLogout) {
+                AlertDialog(
+                    onDismissRequest = { confirmLogout = false },
+                    title = { Text(t("logout")) },
+                    text = { Text(t("logout_confirm")) },
+                    confirmButton = {
+                        TextButton(onClick = { confirmLogout = false; store.logout() }) { Text(t("logout")) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmLogout = false }) { Text(t("cancel")) }
+                    }
+                )
+            }
 
-        Card(
-            modifier = Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .clickable { onOpenReferral() },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(t("invite_friends"), style = MaterialTheme.typography.bodyLarge)
-                    Text(t("invite_friends_sub"), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Card(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { onOpenReferral() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(t("invite_friends"), style = MaterialTheme.typography.bodyLarge)
+                        Text(t("invite_friends_sub"), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
                 }
-                Icon(Icons.Filled.ChevronRight, contentDescription = null)
             }
         }
 
@@ -3915,7 +3952,7 @@ private fun AboutScreen(modifier: Modifier = Modifier) {
                 }
                 AnimatedVisibility(visible = privacyOpen) {
                     Text(
-                        if (lang == Lang.FA) PRIVACY_FA else PRIVACY_EN,
+                        Brand.apply(if (lang == Lang.FA) PRIVACY_FA else PRIVACY_EN),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp)
@@ -3930,7 +3967,7 @@ private fun AboutScreen(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .padding(top = 8.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .clickable { runCatching { uriHandler.openUri("https://t.me/cube_sup") } }
+                .clickable { runCatching { uriHandler.openUri(Brand.supportUrl) } }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Icon(
@@ -3950,7 +3987,7 @@ private fun AboutScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
-                .clickable { runCatching { uriHandler.openUri("https://t.me/cube_vpnn") } }
+                .clickable { runCatching { uriHandler.openUri(Brand.channelUrl) } }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Icon(
@@ -3989,39 +4026,39 @@ private fun xrayCoreVersion(): String = runCatching {
 }.getOrNull()?.takeIf { it.isNotBlank() } ?: "—"
 
 private val PRIVACY_EN = """
-CubeVPN is built to protect your privacy.
+{app} is built to protect your privacy.
 
-What we collect: To sign you in, we ask for a phone number or Telegram ID and send a one-time code to it via our Telegram bot (@cubevvpn_bot). We store that identifier, your session token, and your purchased service/plan info (name, data quota, expiry) on our server so we can issue you server configs. We do not log your browsing activity.
+What we collect: To sign you in, we ask for a phone number or Telegram ID and send a one-time code to it via our Telegram bot ({bot}). We store that identifier, your session token, and your purchased service/plan info (name, data quota, expiry) on our server so we can issue you server configs. We do not log your browsing activity.
 
 On your device: Your server configurations and session token are stored encrypted in the app's private storage. Data-usage statistics (how much traffic passed through the tunnel) stay only on your device and are never transmitted anywhere beyond the quota totals your provider already reports. Clearing the app's data removes them and signs you out.
 
 Network requests: To show your current IP address and approximate location, the app contacts third-party services such as ipwho.is and ipify.org. These services necessarily see the IP address of your connection. No other identifying information is sent.
 
-Your servers: The proxy/VPN servers you add are provided by you or your subscription provider. CubeVPN has no control over, and no visibility into, those servers' logging practices — choose providers you trust.
+Your servers: The proxy/VPN servers you add are provided by you or your subscription provider. {app} has no control over, and no visibility into, those servers' logging practices — choose providers you trust.
 
 Permissions: The VPN permission is used solely to route traffic through the tunnel you select. It is never used to inspect, modify or record your traffic.
 
 Changes: This policy may be updated as the app evolves; material changes will be noted in new releases.
 
-Contact: Questions? Reach us on Telegram at @cube_sup, or join @cube_vpnn for updates.
+Contact: Questions? Reach us on Telegram at {support}, or join {channel} for updates.
 """.trimIndent()
 
 private val PRIVACY_FA = """
-کیوب‌وی‌پی‌ان برای حفاظت از حریم خصوصی شما ساخته شده است.
+{app} برای حفاظت از حریم خصوصی شما ساخته شده است.
 
-چه چیزی جمع‌آوری می‌کنیم: برای ورود، شماره موبایل یا شناسه تلگرام شما را می‌گیریم و یک کد یک‌بارمصرف از طریق ربات تلگرامی ما (@cubevvpn_bot) برایتان ارسال می‌کنیم. این شناسه، توکن نشست شما و اطلاعات سرویس/پلن خریداری‌شده‌تان (نام، حجم مصرفی، تاریخ انقضا) روی سرور ما ذخیره می‌شود تا بتوانیم کانفیگ سرور در اختیارتان بگذاریم. فعالیت مرور شما ثبت نمی‌شود.
+چه چیزی جمع‌آوری می‌کنیم: برای ورود، شماره موبایل یا شناسه تلگرام شما را می‌گیریم و یک کد یک‌بارمصرف از طریق ربات تلگرامی ما ({bot}) برایتان ارسال می‌کنیم. این شناسه، توکن نشست شما و اطلاعات سرویس/پلن خریداری‌شده‌تان (نام، حجم مصرفی، تاریخ انقضا) روی سرور ما ذخیره می‌شود تا بتوانیم کانفیگ سرور در اختیارتان بگذاریم. فعالیت مرور شما ثبت نمی‌شود.
 
 روی دستگاه شما: کانفیگ‌های سرور و توکن نشست شما به‌صورت رمزگذاری‌شده در حافظهٔ خصوصی برنامه ذخیره می‌شوند. آمار مصرف داده (میزان ترافیک عبوری از تونل) فقط روی دستگاه شما می‌ماند و جز مجموع مصرفی که ارائه‌دهنده‌تان گزارش می‌دهد، جای دیگری ارسال نمی‌شود. پاک‌کردن دادهٔ برنامه آن‌ها را حذف کرده و شما را خارج می‌کند.
 
 درخواست‌های شبکه: برای نمایش نشانی IP و موقعیت تقریبی شما، برنامه با سرویس‌های شخص ثالث مانند ipwho.is و ipify.org تماس می‌گیرد. این سرویس‌ها ناگزیر نشانی IP اتصال شما را می‌بینند. هیچ اطلاعات شناسایی دیگری ارسال نمی‌شود.
 
-سرورهای شما: سرورهای پراکسی/وی‌پی‌ان که اضافه می‌کنید توسط شما یا ارائه‌دهندهٔ اشتراکتان فراهم می‌شوند. کیوب‌وی‌پی‌ان هیچ کنترل یا دیدی نسبت به سیاست ثبت لاگ آن سرورها ندارد؛ ارائه‌دهنده‌ای را انتخاب کنید که به آن اعتماد دارید.
+سرورهای شما: سرورهای پراکسی/وی‌پی‌ان که اضافه می‌کنید توسط شما یا ارائه‌دهندهٔ اشتراکتان فراهم می‌شوند. {app} هیچ کنترل یا دیدی نسبت به سیاست ثبت لاگ آن سرورها ندارد؛ ارائه‌دهنده‌ای را انتخاب کنید که به آن اعتماد دارید.
 
 دسترسی‌ها: دسترسی وی‌پی‌ان تنها برای هدایت ترافیک از طریق تونلی که انتخاب می‌کنید استفاده می‌شود و هرگز برای بازرسی، تغییر یا ثبت ترافیک شما به‌کار نمی‌رود.
 
 تغییرات: این سیاست ممکن است با تکامل برنامه به‌روزرسانی شود؛ تغییرات مهم در نسخه‌های جدید اعلام می‌شوند.
 
-تماس: سؤالی دارید؟ از طریق تلگرام با @cube_sup در ارتباط باشید، یا برای اطلاع از اخبار به کانال @cube_vpnn بپیوندید.
+تماس: سؤالی دارید؟ از طریق تلگرام با {support} در ارتباط باشید، یا برای اطلاع از اخبار به کانال {channel} بپیوندید.
 """.trimIndent()
 
 @Composable

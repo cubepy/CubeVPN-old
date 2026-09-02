@@ -87,7 +87,7 @@ object ServiceAlerts {
     private fun ensureChannel(nm: NotificationManager) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "CubeVPN", NotificationManager.IMPORTANCE_DEFAULT)
+                NotificationChannel(CHANNEL_ID, Brand.appName, NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
     }

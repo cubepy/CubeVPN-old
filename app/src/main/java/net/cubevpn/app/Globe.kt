@@ -107,7 +107,7 @@ object LocationFetcher {
         val conn = (java.net.URL(url).openConnection(proxy)
                 as javax.net.ssl.HttpsURLConnection).apply {
             connectTimeout = timeout; readTimeout = timeout; requestMethod = "GET"
-            setRequestProperty("User-Agent", "CubeVPN")
+            setRequestProperty("User-Agent", Brand.appName)
         }
         val body = conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
         conn.disconnect()
@@ -155,7 +155,7 @@ object LocationFetcher {
         val c = (java.net.URL(url).openConnection(proxy)
                 as javax.net.ssl.HttpsURLConnection).apply {
             connectTimeout = 6000; readTimeout = 6000; requestMethod = "GET"
-            setRequestProperty("User-Agent", "CubeVPN")
+            setRequestProperty("User-Agent", Brand.appName)
         }
         val s = c.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }.trim()
         c.disconnect()

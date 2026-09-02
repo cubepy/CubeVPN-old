@@ -1,5 +1,5 @@
 import java.util.Properties
-import java.io.FileInputStream
+import java.util.Base64
 
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
@@ -7,6 +7,35 @@ val localProps = Properties().apply {
 }
 
 fun localProp(key: String): String = localProps.getProperty(key, "")
+
+/**
+ * A white-label value, in precedence order:
+ *
+ *  1. `-PBRAND_X_B64=<base64 of UTF-8>` — the encoding-proof channel, and the one the build
+ *     service should use for anything non-ASCII. A brand name in Persian cannot be passed
+ *     safely as a plain `-P`: the Gradle client decodes argv with the platform charset, which
+ *     is not UTF-8 in a bare container, and the name arrives as replacement characters.
+ *  2. `-PBRAND_X=` — fine for ASCII (package names, Telegram handles).
+ *  3. `secrets.properties` — for local builds.
+ *  4. CubeVPN's own value, so a plain checkout builds the CubeVPN app unchanged.
+ *
+ * Presence beats emptiness at every level: `-PBRAND_TON_WALLET=` explicitly clears the wallet
+ * rather than falling through to CubeVPN's, which is how a reseller who takes no TON donations
+ * turns that card off.
+ */
+fun brandProp(key: String, fallback: String): String {
+    val b64Key = "${key}_B64"
+    if (project.hasProperty(b64Key)) {
+        val raw = (project.property(b64Key) as String).trim()
+        if (raw.isNotEmpty()) {
+            return String(Base64.getDecoder().decode(raw), Charsets.UTF_8).trim()
+        }
+        return ""
+    }
+    if (project.hasProperty(key)) return (project.property(key) as String).trim()
+    if (secrets.containsKey(key)) return secrets.getProperty(key).trim()
+    return fallback
+}
 
 fun bcString(value: String): String = buildString {
     append('"')
@@ -28,7 +57,9 @@ plugins {
 
 val secrets = Properties().apply {
     val f = rootProject.file("secrets.properties")
-    if (f.exists()) load(FileInputStream(f))
+    // Read as UTF-8 explicitly: Properties.load(InputStream) decodes ISO-8859-1, which turns a
+    // Persian brand name into mojibake.
+    if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }
 }
 
 // CI passes -PreleaseVersionName=<tag without the leading v> when building off a `vX.Y.Z`
@@ -56,19 +87,56 @@ android {
     }
 
     defaultConfig {
-        applicationId = "net.cubevpn.app"
+        // Every brand needs its own package name so a reseller's app installs alongside
+        // another's rather than replacing it. Overridden per build; defaults to CubeVPN.
+        applicationId = brandProp("BRAND_APPLICATION_ID", "net.cubevpn.app")
         minSdk = 26
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "DEFAULT_SUB_URL", "\"${secrets.getProperty("DEFAULT_SUB_URL", "")}\"")
         buildConfigField("String", "DONATION_CARD_NUMBER", bcString(localProp("DONATION_CARD_NUMBER")))
         buildConfigField("String", "DONATION_CARD_HOLDER", bcString(localProp("DONATION_CARD_HOLDER")))
-        // Base URL of the CubeVPN account API (see docs/api-contract.md). Set in secrets.properties.
-        buildConfigField("String", "API_BASE_URL", bcString(secrets.getProperty("API_BASE_URL", "")))
+
+        // These three differ per brand as much as the name does — a reseller's app has to talk
+        // to their panel, seed their free configs and update from their channel — so they take
+        // a -P override like the BRAND_* values, falling back to secrets.properties.
+        buildConfigField("String", "DEFAULT_SUB_URL", bcString(brandProp("DEFAULT_SUB_URL", "")))
+        // Base URL of the account API (see docs/api-contract.md).
+        buildConfigField("String", "API_BASE_URL", bcString(brandProp("API_BASE_URL", "")))
         // "owner/repo" for the About screen's update checker. Leave blank to disable.
-        buildConfigField("String", "UPDATE_REPO", bcString(secrets.getProperty("UPDATE_REPO", "")))
+        buildConfigField("String", "UPDATE_REPO", bcString(brandProp("UPDATE_REPO", "")))
+        // A brand's own update feed (its panel). Takes precedence over UPDATE_REPO; see
+        // UpdateChecker for the JSON shape.
+        buildConfigField("String", "UPDATE_URL", bcString(brandProp("UPDATE_URL", "")))
+
+        // White-label identity. See Brand.kt — user-facing copy uses placeholders, never these
+        // values directly. Blank falls back to CubeVPN's own, so a plain checkout is unchanged.
+        val brandAppName = brandProp("BRAND_APP_NAME", "CubeVPN")
+        buildConfigField("String", "BRAND_APP_NAME", bcString(brandAppName))
+        buildConfigField("String", "BRAND_BOT", bcString(brandProp("BRAND_BOT", "cubevvpn_bot")))
+        buildConfigField("String", "BRAND_SUPPORT", bcString(brandProp("BRAND_SUPPORT", "cube_sup")))
+        buildConfigField("String", "BRAND_CHANNEL", bcString(brandProp("BRAND_CHANNEL", "cube_vpnn")))
+        buildConfigField(
+            "String", "BRAND_TON_WALLET",
+            bcString(brandProp("BRAND_TON_WALLET", "UQBP3uD9kE9UgTWrH2BiVDmurQZOvVl8awinVzqnBmenUQUq"))
+        )
+
+        // A promotional build that stops working on its own, as "yyyy-MM-dd". Blank — every
+        // ordinary build — never expires. This is deliberately baked in rather than checked
+        // against a server: a trial handed to one reseller isn't worth a service to run, and a
+        // build with nothing to phone home to can't be broken by our own downtime.
+        buildConfigField("String", "BRAND_EXPIRES_AT", bcString(brandProp("BRAND_EXPIRES_AT", "")))
+
+        // Identifies which brand is calling, for a build that talks to the shared platform
+        // rather than to a panel of its own. Sent as a header on every account request; blank
+        // for CubeVPN's own build, whose API_BASE_URL already points somewhere unambiguous.
+        buildConfigField("String", "BRAND_KEY", bcString(brandProp("BRAND_KEY", "")))
+
+        // The launcher label and the widget picker's description can't read BuildConfig, so
+        // they're generated as resources here instead of living in res/values/strings.xml.
+        resValue("string", "app_name", brandAppName)
+        resValue("string", "widget_description", "Connect or disconnect $brandAppName without opening the app")
     }
 
     signingConfigs {
@@ -91,6 +159,8 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // app_name / widget_description are generated per brand in defaultConfig.
+        resValues = true
     }
 
     buildTypes {
@@ -124,9 +194,16 @@ android {
     }
 }
 
-// Name built APKs "CubeVPN-v<version>-<abi|universal>-<buildType>.apk" instead of AGP's
-// default "app-arm64-v8a-release.apk", so a GitHub release asset (and what a browser
-// offers to save it as) reads like a real CubeVPN build, not a generic filename.
+// The brand's name as it appears in the APK's file name. Kept separate from BRAND_APP_NAME
+// because the launcher label may be Persian, and a download whose file name is Persian is
+// awkward to hand around; the build service passes a plain ASCII slug like "NovaVPN".
+val brandFileSlug: String = brandProp("BRAND_SLUG", "CubeVPN")
+    .replace(Regex("[^A-Za-z0-9._-]"), "")
+    .ifEmpty { "app" }
+
+// Name built APKs "<Brand>-v<version>-<abi|universal>-<buildType>.apk" instead of AGP's
+// default "app-arm64-v8a-release.apk", so a release asset (and what a browser offers to
+// save it as) reads like a real build of that brand, not a generic filename.
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
@@ -135,7 +212,7 @@ androidComponents {
                     .find { it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI }
                     ?.identifier
                     ?: "universal"
-                output.outputFileName.set("CubeVPN-v$appVersionName-$abi-${variant.buildType}.apk")
+                output.outputFileName.set("$brandFileSlug-v$appVersionName-$abi-${variant.buildType}.apk")
             }
         }
     }

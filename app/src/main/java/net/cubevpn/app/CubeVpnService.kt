@@ -52,6 +52,13 @@ class CubeVpnService : VpnService() {
                 return START_NOT_STICKY
             }
             else -> {
+                // A trial build that has run out refuses to tunnel, not just to show its UI.
+                // The widget, the quick-settings tile and always-on VPN all start the service
+                // without the activity ever opening, so the screen alone would not stop it.
+                if (Brand.hasExpired) {
+                    die(null)
+                    return START_NOT_STICKY
+                }
                 val configJson = intent?.getStringExtra(EXTRA_CONFIG)
                 configName = intent?.getStringExtra(EXTRA_NAME) ?: "VPN"
                 stopLabel = intent?.getStringExtra(EXTRA_STOP_LABEL) ?: "Disconnect"
@@ -72,7 +79,7 @@ class CubeVpnService : VpnService() {
 
         scope.launch {
             val builder = Builder()
-                .setSession("CubeVPN")
+                .setSession(Brand.appName)
                 .setMtu(1500)
                 .addAddress("10.10.0.2", 32)
                 .addDnsServer("1.1.1.1")
@@ -240,7 +247,7 @@ class CubeVpnService : VpnService() {
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "CubeVPN", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, Brand.appName, NotificationManager.IMPORTANCE_LOW)
             )
         }
         val pi = PendingIntent.getActivity(
@@ -270,7 +277,7 @@ class CubeVpnService : VpnService() {
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "CubeVPN", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, Brand.appName, NotificationManager.IMPORTANCE_LOW)
             )
         }
         val pi = PendingIntent.getActivity(
