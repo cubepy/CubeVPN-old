@@ -87,6 +87,20 @@ object Brand {
      */
     val key: String = BuildConfig.BRAND_KEY.trim()
 
+    /**
+     * The colour this brand chose, or null to leave the choice to the person using the app.
+     *
+     * A reseller picks one of the six by name. Null is CubeVPN's own build and any brand that
+     * did not care, where the accent stays a setting like it always was — but where a brand did
+     * choose, the picker disappears, because a colour the user can change is not a brand colour.
+     *
+     * An unrecognised name reads as null rather than failing the build: a typo in a brand file
+     * should cost that brand its colour, not its app.
+     */
+    val accent: AccentTheme? = BuildConfig.BRAND_ACCENT.trim().uppercase().let { name ->
+        if (name.isEmpty()) null else AccentTheme.entries.firstOrNull { it.name == name }
+    }
+
     /** Substitutes the brand placeholders. Cheap enough to sit in every string lookup. */
     fun apply(text: String): String {
         if (!text.contains('{')) return text

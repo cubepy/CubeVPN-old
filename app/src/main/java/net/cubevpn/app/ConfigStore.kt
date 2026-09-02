@@ -15,7 +15,13 @@ import java.util.concurrent.Executors
 
 enum class PerAppMode { OFF, ALLOWLIST, BLOCKLIST }
 enum class ThemeMode { SYSTEM, LIGHT, DARK, AMOLED }
-enum class AccentTheme { VIOLET, AURORA, EMBER }
+/**
+ * The six accents. The first three are CubeVPN's own, hand-tuned; the rest are generated from a
+ * hue in Accents.kt so that adding a seventh is one line rather than sixty.
+ *
+ * A reseller picks one and it becomes their app's colour — see [Brand.accent].
+ */
+enum class AccentTheme { VIOLET, AURORA, EMBER, EMERALD, ROSE, INDIGO }
 class ConfigStore private constructor(context: Context) {
 
     private val prefs = context.getSharedPreferences("gozarnet", Context.MODE_PRIVATE)
@@ -213,11 +219,15 @@ class ConfigStore private constructor(context: Context) {
     private val _accentTheme = MutableStateFlow(loadAccentTheme())
     val accentTheme: StateFlow<AccentTheme> = _accentTheme.asStateFlow()
 
+    // A brand that chose a colour gets that colour, and the stored preference is not consulted:
+    // the picker is hidden in those builds, so any stored value is either a leftover from before
+    // the brand chose or something a restored backup carried in.
     private fun loadAccentTheme(): AccentTheme =
-        runCatching { AccentTheme.valueOf(prefs.getString(KEY_ACCENT, null) ?: "VIOLET") }
+        Brand.accent ?: runCatching { AccentTheme.valueOf(prefs.getString(KEY_ACCENT, null) ?: "VIOLET") }
             .getOrDefault(AccentTheme.VIOLET)
 
     fun setAccentTheme(accent: AccentTheme) {
+        if (Brand.accent != null) return
         _accentTheme.value = accent
         prefs.edit().putString(KEY_ACCENT, accent.name).apply()
     }

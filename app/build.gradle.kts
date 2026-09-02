@@ -138,6 +138,10 @@ android {
         // means the question is never asked. See License.kt.
         buildConfigField("String", "LICENSE_URL", bcString(brandProp("LICENSE_URL", "")))
 
+        // One of the six accent names (VIOLET, AURORA, EMBER, EMERALD, ROSE, INDIGO). Blank
+        // leaves the colour a setting the user picks, which is how CubeVPN's own build works.
+        buildConfigField("String", "BRAND_ACCENT", bcString(brandProp("BRAND_ACCENT", "")))
+
         // The launcher label and the widget picker's description can't read BuildConfig, so
         // they're generated as resources here instead of living in res/values/strings.xml.
         resValue("string", "app_name", brandAppName)
