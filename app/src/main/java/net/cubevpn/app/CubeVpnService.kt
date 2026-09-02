@@ -223,7 +223,9 @@ class CubeVpnService : VpnService() {
         runCatching { Gozarcore.stop() }
         runCatching { tunFd?.close() }; tunFd = null
         val b = Builder()
-            .setSession("CubeVPN (blocked)")
+            // Android shows this in the VPN dialog and in Settings, and the kill switch is
+            // exactly when someone goes looking there.
+            .setSession("${Brand.appName} (blocked)")
             .setMtu(1500)
             .addAddress("10.10.0.2", 32)
             .addRoute("0.0.0.0", 0)
