@@ -14,6 +14,43 @@ to. The differences below are the decision that has to be made once.
 
 ---
 
+## 0. Settled (2026-09-02)
+
+Four questions were open in the first version of this file. Three are answered
+and the server has been changed to match.
+
+**Sign-in is always the reseller's own bot, through the platform.** Whether the
+person signing in is the reseller or one of their customers, and wherever that
+bot came from — bought from us or made anywhere else — the code is sent by the
+brand's own bot through `/app/requestcode.php` on the platform domain. The
+per-tenant `/api/` path is not the app's login route: it cannot serve a
+customer who has no shop, and that customer is the reason this exists.
+
+So the client sets its base URL to the **platform**, not to a panel, and sends
+`X-Cube-Brand` on every call.
+
+**The error codes are the client's names.** The server was changed, not the
+app: `invalid_identifier`, `invalid_code`, `expired_code`, `too_many_attempts`,
+`rate_limited`, `unauthorized`. Two additions the client should handle:
+
+- `start_required` — the user has never pressed Start on that bot. The client's
+  `identifier_not_found` means the same thing and says less; this one has its
+  own screen ("open the bot and press Start").
+- `license_closed` — the brand's app subscription has lapsed. Carries
+  `"code": "402-A"`.
+
+Every failure now carries a `message` in Persian, which the app shows verbatim.
+The server had been sending a bare code, leaving the client with nothing to
+put on the screen.
+
+**The invite/referral screen is removed.** `user.invite_code` and
+`user.referral_count` are not served and will not be. The screen should come
+out of the client.
+
+Still open: whether the shop's own gate ("their panel goes dark") and the app
+licence both stay as switches, or only the licence. They are independent today
+and show different codes.
+
 ## 1. What is on the server now
 
 ### Brand record
@@ -156,35 +193,37 @@ on either side.
 
 | # | `docs/api-contract.md` expects | The server serves | Cheapest fix |
 |---|---|---|---|
-| 1 | `API_BASE_URL` + app appends `/api/<name>.php` | `/app/<name>.php` on the platform domain | app: make the path a build input, or server: alias `/api/` |
-| 2 | no brand header | `X-Cube-Brand: <brand_key>` required | app: send the header it already compiles in |
-| 3 | `identifier` may be a phone number | numeric Telegram id only | server: accept both, as the Faoxima reference does |
-| 4 | every error carries `message`, shown verbatim | `error` only | **server** — the app has nowhere to get Persian text from |
-| 5 | `identifier_not_found` | `start_required` | one name, either side |
-| 6 | `invalid_identifier` | `bad_identifier` | one name |
-| 7 | `invalid_code` / `expired_code` | `wrong_code` / `expired` | one name |
-| 8 | `requestcode` returns `cooldown_seconds` | returns `expires_in` | server: send both |
-| 9 | `verifycode` returns a `user` object | returns `token` + `expires_at` | server: add `user` |
-| 10 | `accountme` returns `services[]` with `subscription_url` | returns balance + a count | **the big one — see below** |
-| 11 | `user.invite_code` / `referral_count` | absent | server, if the invite screen is staying |
+| 1 | `API_BASE_URL` + app appends `/api/<name>.php` | `/app/<name>.php` on the platform domain | **client**: point at the platform, append `/app/` |
+| 2 | no brand header | `X-Cube-Brand: <brand_key>` required | **client**: send the key it already compiles in |
+| 3 | `identifier` may be a phone number | numeric Telegram id only | open — a phone number needs a shop to resolve against |
+| 4 | every error carries `message`, shown verbatim | ✅ **done** — every failure carries Persian `message` | — |
+| 5 | `identifier_not_found` | `start_required` | client: rename, same screen |
+| 6 | `invalid_identifier` | ✅ **done** | — |
+| 7 | `invalid_code` / `expired_code` | ✅ **done** | — |
+| 8 | `requestcode` returns `cooldown_seconds` | ✅ **done** — sends `cooldown_seconds` and `expires_in` | — |
+| 9 | `verifycode` returns a `user` object | ✅ **done** | — |
+| 10 | `accountme` returns `services[]` with `subscription_url` | ✅ **done** — real list when a shop is linked, `[]` when not | client: empty is not an error |
+| 11 | `user.invite_code` / `referral_count` | not served, and will not be | **client: remove the invite screen** |
 | 12 | gating is "the tenant's panel goes dark" | a second, independent licence (`402-A`) | decide whether both switches exist |
 
-### On row 10
+### On row 10 — settled
 
-This is the one that decides the shape of the product.
+`accountme` now returns `services[]` in the shape this repo asked for. Where a
+brand is linked to a shop we host, the list is built by that shop's own
+`ServiceHandler` — the same code its mini app uses — so Marzban, Hiddify, x-ui
+and stock configs answer identically. The shop's own subscription gate still
+applies to its data, and a blocked customer is refused exactly as the mini app
+refuses them.
 
-`docs/api-contract.md` has `accountme` return the user's purchased services
-with a real Xray/V2Ray `subscription_url` each — which the app then fetches and
-parses exactly like a pasted link. That only works where there **is** a shop:
-the services live in a tenant's `invoice` table.
+Where there is no shop, the array is **empty, not absent**, and that is the
+normal case rather than a degraded one: an app-only customer pastes their own
+subscription link, which is a whole product. **An empty `services[]` must not
+render as an error** — for one whole class of brand it is the steady state.
 
-The platform-level path exists precisely for the customer who has no shop. For
-them there is no `services[]` to return, and the app's own fallback — "add a
-config manually / paste a subscription" — is the whole product.
-
-So `services[]` is not missing; it is empty for app-only brands and available
-for linked ones. If the app treats an empty `services[]` as an error state, an
-app-only brand looks broken on its first screen.
+A panel that does not answer drops its own row and the rest of the list still
+returns; a shop that is entirely down degrades to an empty list rather than
+failing the request, because the licence answer is what the endpoint is really
+for.
 
 ### On row 12
 
