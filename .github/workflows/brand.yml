@@ -50,8 +50,12 @@ jobs:
             files=("$BRANDS_DIR"/*.properties)
             [ -e "${files[0]}" ] || { echo "::error::no brand files in $BRANDS_DIR"; exit 1; }
           else
+            # Brand files are written in lower case by the "Configure build server" workflow,
+            # while a slug is normally typed the way it appears in file names (OGVPN). Match
+            # either rather than making the caller remember which.
             f="$BRANDS_DIR/$want.properties"
-            [ -f "$f" ] || { echo "::error::$f not found on this runner"; exit 1; }
+            [ -f "$f" ] || f="$BRANDS_DIR/$(echo "$want" | tr '[:upper:]' '[:lower:]').properties"
+            [ -f "$f" ] || { echo "::error::no brand file for '$want' on this runner; have: $(ls -1 "$BRANDS_DIR"/*.properties 2>/dev/null | xargs -r -n1 basename | tr '\n' ' ')"; exit 1; }
             files=("$f")
           fi
 
@@ -70,6 +74,73 @@ jobs:
             echo "::error::failed: ${failed[*]}"
             exit 1
           fi
+
+      - name: Back up a newly created signing key
+        # The one failure in this system that cannot be repaired: a lost key means that brand
+        # can never ship an update again, and every one of its customers would have to
+        # uninstall and reinstall. So the moment a key first exists, a copy leaves this machine
+        # and goes to the operator's own private group.
+        #
+        # Once per brand, not once per build. Re-sending the same key on every build adds no
+        # safety and multiplies the number of places it exists; the .sent marker is what keeps
+        # that true even though this step runs every time.
+        #
+        # The archive holds the keystore and its password together. That is deliberate — a
+        # backup you cannot open is not a backup — and it is why the destination has to be a
+        # private group and nowhere else.
+        if: always()
+        env:
+          TG_TOKEN: ${{ secrets.BACKUP_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.BACKUP_CHAT_ID }}
+        run: |
+          set -uo pipefail
+          if [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
+            echo "BACKUP_BOT_TOKEN / BACKUP_CHAT_ID not set — skipping key backup"
+            exit 0
+          fi
+          shopt -s nullglob
+          sent=0
+          for jks in "$BRAND_KEYSTORE_DIR"/*.jks; do
+            slug="$(basename "$jks" .jks)"
+            marker="$BRAND_KEYSTORE_DIR/$slug.sent"
+            [ -f "$marker" ] && continue
+            pass_file="$BRAND_KEYSTORE_DIR/$slug.pass"
+            [ -f "$pass_file" ] || { echo "::warning::$slug has no password file; not backing it up"; continue; }
+
+            tmp="$(mktemp -d)"
+            tar czf "$tmp/$slug-keystore.tgz" -C "$BRAND_KEYSTORE_DIR" "$slug.jks" "$slug.pass"
+
+            # The fingerprint travels with the backup because it is what makes it verifiable
+            # later: it is printed on every build, so a restored key can be checked against any
+            # APK already on someone's phone.
+            fp="$(keytool -list -keystore "$jks" -storepass "$(cat "$pass_file")" 2>/dev/null \
+                  | grep -i 'SHA-256' | head -1 | sed 's/.*: //')"
+
+            caption="$(printf '%s\n' \
+              "signing key — $slug" \
+              "SHA-256: ${fp:-unknown}" \
+              "created $(date -u '+%Y-%m-%d %H:%M UTC') on $(hostname -s)" \
+              "" \
+              "Keep this. Without it, $slug can never ship an update again." \
+              "Contains the keystore and its password.")"
+
+            if curl -sS -f --max-time 60 \
+                 -F chat_id="$TG_CHAT" \
+                 -F caption="$caption" \
+                 -F document=@"$tmp/$slug-keystore.tgz" \
+                 "https://api.telegram.org/bot$TG_TOKEN/sendDocument" >/dev/null; then
+              touch "$marker"
+              sent=$((sent + 1))
+              echo "backed up $slug"
+            else
+              # Never fails the build: the APKs are fine and the key is still on disk. But it
+              # has to be loud, because a quiet skip here is exactly how a key ends up existing
+              # in one place only.
+              echo "::warning::could not send $slug's key — it exists only on this server until you retry"
+            fi
+            rm -rf "$tmp"
+          done
+          [ "$sent" -gt 0 ] || echo "no new keys to back up"
 
       - name: Publish
         # The hook decides where builds go; it is this machine's business, not the repository's.

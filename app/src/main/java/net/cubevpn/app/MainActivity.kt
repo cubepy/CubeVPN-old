@@ -560,24 +560,30 @@ private fun CubeVpnMark(modifier: Modifier = Modifier, ringed: Boolean = false) 
                 )
             }
         }
+        // The two layers of the launcher icon, masked to a circle — literally the icon this
+        // app was installed under.
+        //
+        // It used to be drawn here by hand, which meant every branded build wore CubeVPN's
+        // mark on its language picker, its welcome screen and its about page while showing the
+        // reseller's own icon on the home screen. Painting the real icon instead makes that
+        // impossible to get wrong again: whatever the launcher shows is what these screens
+        // show, for every brand, with nothing per-brand to remember.
         Box(
             Modifier
                 .fillMaxSize(if (ringed) 0.8f else 1f)
                 .clip(CircleShape)
-                .background(Brush.linearGradient(accent.gradient))
         ) {
-            Canvas(Modifier.fillMaxSize()) {
-                val w = size.width; val h = size.height
-                val stroke = size.minDimension * 0.1f
-                val path = Path().apply {
-                    moveTo(w * 0.28f, h * 0.67f)
-                    lineTo(w * 0.46f, h * 0.44f)
-                    lineTo(w * 0.59f, h * 0.56f)
-                    lineTo(w * 0.72f, h * 0.33f)
-                }
-                drawPath(path, color = Color.White, style = Stroke(width = stroke, cap = StrokeCap.Round))
-                drawCircle(Color.White, radius = stroke * 0.65f, center = Offset(w * 0.72f, h * 0.33f))
-            }
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_background),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize()
+            )
         }
     }
 }
@@ -589,8 +595,8 @@ private fun CubeVpnWordmark(modifier: Modifier = Modifier, height: Dp = 34.dp, t
         Spacer(Modifier.width(height * 0.22f))
         Text(
             buildAnnotatedString {
-                append("Cube")
-                withStyle(SpanStyle(color = LocalAccent.current.glow)) { append("VPN") }
+                append(Brand.nameHead)
+                withStyle(SpanStyle(color = LocalAccent.current.glow)) { append(Brand.nameAccentTail) }
             },
             color = if (tint == Color.Unspecified) LocalContentColor.current else tint,
             fontWeight = FontWeight.Black,
@@ -3473,23 +3479,28 @@ private fun SettingsScreen(
             }
         }
 
-        Card(
-            modifier = Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .clickable { onOpenDonation() },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(if (lang == Lang.FA) "حمایت از ما" else "Support Us", style = MaterialTheme.typography.bodyLarge)
-                    Text(if (lang == Lang.FA) "با حمایت مالی، به توسعه کیوب‌وی‌پی‌ان و اینترنت آزاد کمک کنید" else "Donate to develop CubeVPN and Free internet",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Only the build that has somewhere to receive money asks for it. A reseller's copy has
+        // no card and no wallet, and an appeal in someone else's voice above a row of zeros is
+        // worse than no appeal at all.
+        if (Brand.donationsEnabled) {
+            Card(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { onOpenDonation() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(if (lang == Lang.FA) "حمایت از ما" else "Support Us", style = MaterialTheme.typography.bodyLarge)
+                        Text(if (lang == Lang.FA) "با حمایت مالی، به توسعه کیوب‌وی‌پی‌ان و اینترنت آزاد کمک کنید" else "Donate to develop CubeVPN and Free internet",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Filled.Favorite, contentDescription = null,
+                        tint = LocalAccent.current.glow, modifier = Modifier.padding(end = 12.dp))
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
                 }
-                Icon(Icons.Filled.Favorite, contentDescription = null,
-                    tint = LocalAccent.current.glow, modifier = Modifier.padding(end = 12.dp))
-                Icon(Icons.Filled.ChevronRight, contentDescription = null)
             }
         }
 

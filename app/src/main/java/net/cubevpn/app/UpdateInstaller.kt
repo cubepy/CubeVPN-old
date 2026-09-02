@@ -12,15 +12,18 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 /**
- * Downloads a CubeVPN release APK via Android's DownloadManager — a background, OS-managed
- * download instead of handing the .apk link to the browser — then prompts the system installer
- * once it lands. Android still requires an explicit user tap to actually install a package;
- * there's no way for a non-system app to skip that step, however the download happens.
+ * Downloads a release APK via Android's DownloadManager — a background, OS-managed download
+ * instead of handing the .apk link to the browser — then prompts the system installer once it
+ * lands. Android still requires an explicit user tap to actually install a package; there's no
+ * way for a non-system app to skip that step, however the download happens.
  */
 object UpdateInstaller {
 
     fun downloadAndInstall(context: Context, url: String, version: String) {
-        val fileName = "CubeVPN-v$version.apk"
+        // Lands in the user's Downloads under this name, so it wears the brand they installed
+        // rather than the one that wrote the code. Whitespace would survive into the path, so
+        // a name like "OG VPN" becomes OGVPN-v1.4.3.apk.
+        val fileName = "${Brand.appName.filter { !it.isWhitespace() }}-v$version.apk"
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager ?: return
 
         val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
