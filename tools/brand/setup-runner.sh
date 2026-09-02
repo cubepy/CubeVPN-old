@@ -85,7 +85,11 @@ df -h / | tail -1 | awk '{print "    " $4 " free on /"}'
 say "packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq curl unzip git openjdk-17-jdk-headless python3 python3-pil >/dev/null
+# libicu-dev is here for the runner, which is a .NET application and refuses to start without
+# ICU. The installdependencies.sh script GitHub ships tries a hardcoded list of libicuNN names
+# and misses whichever one the current release actually has, so pull it in by the -dev package
+# that always resolves to the right one.
+apt-get install -y -qq curl unzip git openjdk-17-jdk-headless python3 python3-pil libicu-dev >/dev/null
 echo "    jdk $(java -version 2>&1 | head -1 | sed 's/.*"\(.*\)".*/\1/'), python $(python3 -V | cut -d' ' -f2)"
 
 # --- the account the runner runs as ----------------------------------------------------------
