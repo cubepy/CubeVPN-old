@@ -47,6 +47,7 @@ API_BASE_URL="$(prop API_BASE_URL)"
 TON="$(prop BRAND_TON_WALLET)"
 UPDATE_URL="$(prop UPDATE_URL)"
 EXPIRES_AT="$(prop BRAND_EXPIRES_AT)"
+BRAND_KEY="$(prop BRAND_KEY)"
 ICON_BG="$(prop BRAND_ICON_BACKGROUND)"; ICON_BG="${ICON_BG:-#6D28D9}"
 LOGO="$(prop BRAND_LOGO)"
 LOGO_SCALE="$(prop BRAND_LOGO_SCALE)"; LOGO_SCALE="${LOGO_SCALE:-0.60}"
@@ -124,7 +125,8 @@ KEY_PASSWORD="$PASS" \
     -PBRAND_TON_WALLET="$TON" \
     -PAPI_BASE_URL="$API_BASE_URL" \
     -PUPDATE_URL="$UPDATE_URL" \
-    -PBRAND_EXPIRES_AT="$EXPIRES_AT"
+    -PBRAND_EXPIRES_AT="$EXPIRES_AT" \
+    -PBRAND_KEY="$BRAND_KEY"
 
 # --- collect + verify ----------------------------------------------------------------------
 OUT="$ROOT/dist/$SLUG"

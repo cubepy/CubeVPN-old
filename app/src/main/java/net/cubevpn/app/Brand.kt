@@ -51,6 +51,17 @@ object Brand {
 
     val hasExpired: Boolean get() = expiresAt > 0L && System.currentTimeMillis() > expiresAt
 
+    /**
+     * Which brand this build is, for the shared platform API.
+     *
+     * A reseller who never bought a bot from us still has a bot of their own, and that is the
+     * one their customers know. They hand over its token, we send the one-time codes through
+     * it, and this key is how the platform knows whose bot to send them through. It is an
+     * identifier, not a credential: it says which brand is calling, and every request it
+     * accompanies is still authorized on its own.
+     */
+    val key: String = BuildConfig.BRAND_KEY.trim()
+
     /** Substitutes the brand placeholders. Cheap enough to sit in every string lookup. */
     fun apply(text: String): String {
         if (!text.contains('{')) return text

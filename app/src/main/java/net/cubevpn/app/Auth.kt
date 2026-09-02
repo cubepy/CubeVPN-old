@@ -127,6 +127,10 @@ object AuthApi {
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("Accept", "application/json")
                 if (token != null) setRequestProperty("Authorization", "Bearer $token")
+                // A brand on the shared platform has to say which brand it is; a brand with its
+                // own panel is already unambiguous and sends nothing. Header rather than query
+                // string so it stays out of access logs and works the same on GET and POST.
+                if (Brand.key.isNotEmpty()) setRequestProperty("X-Cube-Brand", Brand.key)
                 if (body != null) {
                     doOutput = true
                     outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }

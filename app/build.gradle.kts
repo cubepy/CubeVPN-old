@@ -128,6 +128,11 @@ android {
         // build with nothing to phone home to can't be broken by our own downtime.
         buildConfigField("String", "BRAND_EXPIRES_AT", bcString(brandProp("BRAND_EXPIRES_AT", "")))
 
+        // Identifies which brand is calling, for a build that talks to the shared platform
+        // rather than to a panel of its own. Sent as a header on every account request; blank
+        // for CubeVPN's own build, whose API_BASE_URL already points somewhere unambiguous.
+        buildConfigField("String", "BRAND_KEY", bcString(brandProp("BRAND_KEY", "")))
+
         // The launcher label and the widget picker's description can't read BuildConfig, so
         // they're generated as resources here instead of living in res/values/strings.xml.
         resValue("string", "app_name", brandAppName)
