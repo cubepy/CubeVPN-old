@@ -27,7 +27,7 @@ object UpdateChecker {
                 connectTimeout = 10000
                 readTimeout = 10000
                 requestMethod = "GET"
-                setRequestProperty("User-Agent", "CubeVPN")
+                setRequestProperty("User-Agent", Brand.appName)
                 setRequestProperty("Accept", "application/vnd.github+json")
             }
             val body = try {

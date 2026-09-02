@@ -1,4 +1,3 @@
 <resources>
-    <string name="app_name">CubeVPN</string>
-    <string name="widget_description">Connect or disconnect CubeVPN without opening the app</string>
+    <!-- app_name and widget_description are generated per brand in build.gradle.kts (resValue). -->
 </resources>

@@ -923,10 +923,10 @@ private fun LoginIdentifierScreen(
         )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            TextButton(onClick = { runCatching { uriHandler.openUri("https://t.me/cube_vpnn") } }) {
+            TextButton(onClick = { runCatching { uriHandler.openUri(Brand.channelUrl) } }) {
                 Text(t("login_open_channel"))
             }
-            TextButton(onClick = { runCatching { uriHandler.openUri("https://t.me/cubevvpn_bot") } }) {
+            TextButton(onClick = { runCatching { uriHandler.openUri(Brand.botUrl) } }) {
                 Text(t("login_open_bot"))
             }
         }
@@ -3915,7 +3915,7 @@ private fun AboutScreen(modifier: Modifier = Modifier) {
                 }
                 AnimatedVisibility(visible = privacyOpen) {
                     Text(
-                        if (lang == Lang.FA) PRIVACY_FA else PRIVACY_EN,
+                        Brand.apply(if (lang == Lang.FA) PRIVACY_FA else PRIVACY_EN),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 12.dp)
@@ -3930,7 +3930,7 @@ private fun AboutScreen(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .padding(top = 8.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .clickable { runCatching { uriHandler.openUri("https://t.me/cube_sup") } }
+                .clickable { runCatching { uriHandler.openUri(Brand.supportUrl) } }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Icon(
@@ -3950,7 +3950,7 @@ private fun AboutScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
-                .clickable { runCatching { uriHandler.openUri("https://t.me/cube_vpnn") } }
+                .clickable { runCatching { uriHandler.openUri(Brand.channelUrl) } }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Icon(
@@ -3989,39 +3989,39 @@ private fun xrayCoreVersion(): String = runCatching {
 }.getOrNull()?.takeIf { it.isNotBlank() } ?: "—"
 
 private val PRIVACY_EN = """
-CubeVPN is built to protect your privacy.
+{app} is built to protect your privacy.
 
-What we collect: To sign you in, we ask for a phone number or Telegram ID and send a one-time code to it via our Telegram bot (@cubevvpn_bot). We store that identifier, your session token, and your purchased service/plan info (name, data quota, expiry) on our server so we can issue you server configs. We do not log your browsing activity.
+What we collect: To sign you in, we ask for a phone number or Telegram ID and send a one-time code to it via our Telegram bot ({bot}). We store that identifier, your session token, and your purchased service/plan info (name, data quota, expiry) on our server so we can issue you server configs. We do not log your browsing activity.
 
 On your device: Your server configurations and session token are stored encrypted in the app's private storage. Data-usage statistics (how much traffic passed through the tunnel) stay only on your device and are never transmitted anywhere beyond the quota totals your provider already reports. Clearing the app's data removes them and signs you out.
 
 Network requests: To show your current IP address and approximate location, the app contacts third-party services such as ipwho.is and ipify.org. These services necessarily see the IP address of your connection. No other identifying information is sent.
 
-Your servers: The proxy/VPN servers you add are provided by you or your subscription provider. CubeVPN has no control over, and no visibility into, those servers' logging practices — choose providers you trust.
+Your servers: The proxy/VPN servers you add are provided by you or your subscription provider. {app} has no control over, and no visibility into, those servers' logging practices — choose providers you trust.
 
 Permissions: The VPN permission is used solely to route traffic through the tunnel you select. It is never used to inspect, modify or record your traffic.
 
 Changes: This policy may be updated as the app evolves; material changes will be noted in new releases.
 
-Contact: Questions? Reach us on Telegram at @cube_sup, or join @cube_vpnn for updates.
+Contact: Questions? Reach us on Telegram at {support}, or join {channel} for updates.
 """.trimIndent()
 
 private val PRIVACY_FA = """
-کیوب‌وی‌پی‌ان برای حفاظت از حریم خصوصی شما ساخته شده است.
+{app} برای حفاظت از حریم خصوصی شما ساخته شده است.
 
-چه چیزی جمع‌آوری می‌کنیم: برای ورود، شماره موبایل یا شناسه تلگرام شما را می‌گیریم و یک کد یک‌بارمصرف از طریق ربات تلگرامی ما (@cubevvpn_bot) برایتان ارسال می‌کنیم. این شناسه، توکن نشست شما و اطلاعات سرویس/پلن خریداری‌شده‌تان (نام، حجم مصرفی، تاریخ انقضا) روی سرور ما ذخیره می‌شود تا بتوانیم کانفیگ سرور در اختیارتان بگذاریم. فعالیت مرور شما ثبت نمی‌شود.
+چه چیزی جمع‌آوری می‌کنیم: برای ورود، شماره موبایل یا شناسه تلگرام شما را می‌گیریم و یک کد یک‌بارمصرف از طریق ربات تلگرامی ما ({bot}) برایتان ارسال می‌کنیم. این شناسه، توکن نشست شما و اطلاعات سرویس/پلن خریداری‌شده‌تان (نام، حجم مصرفی، تاریخ انقضا) روی سرور ما ذخیره می‌شود تا بتوانیم کانفیگ سرور در اختیارتان بگذاریم. فعالیت مرور شما ثبت نمی‌شود.
 
 روی دستگاه شما: کانفیگ‌های سرور و توکن نشست شما به‌صورت رمزگذاری‌شده در حافظهٔ خصوصی برنامه ذخیره می‌شوند. آمار مصرف داده (میزان ترافیک عبوری از تونل) فقط روی دستگاه شما می‌ماند و جز مجموع مصرفی که ارائه‌دهنده‌تان گزارش می‌دهد، جای دیگری ارسال نمی‌شود. پاک‌کردن دادهٔ برنامه آن‌ها را حذف کرده و شما را خارج می‌کند.
 
 درخواست‌های شبکه: برای نمایش نشانی IP و موقعیت تقریبی شما، برنامه با سرویس‌های شخص ثالث مانند ipwho.is و ipify.org تماس می‌گیرد. این سرویس‌ها ناگزیر نشانی IP اتصال شما را می‌بینند. هیچ اطلاعات شناسایی دیگری ارسال نمی‌شود.
 
-سرورهای شما: سرورهای پراکسی/وی‌پی‌ان که اضافه می‌کنید توسط شما یا ارائه‌دهندهٔ اشتراکتان فراهم می‌شوند. کیوب‌وی‌پی‌ان هیچ کنترل یا دیدی نسبت به سیاست ثبت لاگ آن سرورها ندارد؛ ارائه‌دهنده‌ای را انتخاب کنید که به آن اعتماد دارید.
+سرورهای شما: سرورهای پراکسی/وی‌پی‌ان که اضافه می‌کنید توسط شما یا ارائه‌دهندهٔ اشتراکتان فراهم می‌شوند. {app} هیچ کنترل یا دیدی نسبت به سیاست ثبت لاگ آن سرورها ندارد؛ ارائه‌دهنده‌ای را انتخاب کنید که به آن اعتماد دارید.
 
 دسترسی‌ها: دسترسی وی‌پی‌ان تنها برای هدایت ترافیک از طریق تونلی که انتخاب می‌کنید استفاده می‌شود و هرگز برای بازرسی، تغییر یا ثبت ترافیک شما به‌کار نمی‌رود.
 
 تغییرات: این سیاست ممکن است با تکامل برنامه به‌روزرسانی شود؛ تغییرات مهم در نسخه‌های جدید اعلام می‌شوند.
 
-تماس: سؤالی دارید؟ از طریق تلگرام با @cube_sup در ارتباط باشید، یا برای اطلاع از اخبار به کانال @cube_vpnn بپیوندید.
+تماس: سؤالی دارید؟ از طریق تلگرام با {support} در ارتباط باشید، یا برای اطلاع از اخبار به کانال {channel} بپیوندید.
 """.trimIndent()
 
 @Composable

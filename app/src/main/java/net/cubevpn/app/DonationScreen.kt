@@ -54,7 +54,8 @@ private val DONATION_CARD_NUMBER: String =
     BuildConfig.DONATION_CARD_NUMBER.ifBlank { "0000 0000 0000 0000" }
 private val DONATION_CARD_HOLDER: String =
     BuildConfig.DONATION_CARD_HOLDER.ifBlank { "—" }
-private const val TON_WALLET_ADDRESS = "UQBP3uD9kE9UgTWrH2BiVDmurQZOvVl8awinVzqnBmenUQUq"
+/** Per-brand; blank for a reseller that takes no TON donations, and the card hides itself. */
+private val TON_WALLET_ADDRESS: String get() = Brand.tonWallet
 
 @Composable
 fun DonationScreen(modifier: Modifier = Modifier) {
@@ -74,9 +75,9 @@ fun DonationScreen(modifier: Modifier = Modifier) {
     ) {
         Text(
             if (lang == Lang.FA)
-                "حمایت مالی شما عزیزان برای من به شدت ارزشمنده. در جهت فراگیر کردن این اپلیکیشن و پیاده سازی ایده های بزرگتر نیاز به سرور چه برای کانفیگ های رایگان اپ و چه برای هاست ایده های آینده وجود داره. در صورتی که دوست داشتین میتونید مبلغی رو به شماره کارت زیر بزنید تا توی توسعه کیوب‌وی‌پی‌ان شریک باشید. ممنون از همتون ❤\uFE0F"
+                "حمایت مالی شما عزیزان برای من به شدت ارزشمنده. در جهت فراگیر کردن این اپلیکیشن و پیاده سازی ایده های بزرگتر نیاز به سرور چه برای کانفیگ های رایگان اپ و چه برای هاست ایده های آینده وجود داره. در صورتی که دوست داشتین میتونید مبلغی رو به شماره کارت زیر بزنید تا توی توسعه ${Brand.appName} شریک باشید. ممنون از همتون ❤\uFE0F"
             else
-                "Your financial support means a great deal to me. To make this app more widely available and to bring bigger ideas to life, servers are needed, both for the app's free configs and for hosting future ideas. If you'd like, you can send any amount to the card number below to be part of CubeVPN's development. Thank you all ❤",
+                "Your financial support means a great deal to me. To make this app more widely available and to bring bigger ideas to life, servers are needed, both for the app's free configs and for hosting future ideas. If you'd like, you can send any amount to the card number below to be part of ${Brand.appName}'s development. Thank you all ❤",
             style = MaterialTheme.typography.bodyMedium
         )
 
@@ -99,7 +100,7 @@ fun DonationScreen(modifier: Modifier = Modifier) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            "CubeVPN",
+                            Brand.appName,
                             color = Color.White,
                             style = MaterialTheme.typography.titleMedium
                         )
@@ -177,6 +178,9 @@ fun DonationScreen(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
+        // A brand with no TON wallet configured shows no TON card at all, rather than one
+        // offering an empty address to copy.
+        if (TON_WALLET_ADDRESS.isNotBlank()) {
         var tonCopied by remember { mutableStateOf(false) }
         LaunchedEffect(tonCopied) {
             if (tonCopied) {
@@ -248,6 +252,7 @@ fun DonationScreen(modifier: Modifier = Modifier) {
                     )
                 }
             }
+        }
         }
     }
 }

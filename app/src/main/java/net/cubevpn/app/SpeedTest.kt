@@ -19,7 +19,7 @@ object SpeedTest {
     private fun measureOnce(timeoutMs: Int): Int? = try {
         val conn = (URL(DELAY_URL).openConnection(proxy()) as HttpURLConnection).apply {
             connectTimeout = timeoutMs; readTimeout = timeoutMs; requestMethod = "GET"
-            setRequestProperty("User-Agent", "CubeVPN")
+            setRequestProperty("User-Agent", Brand.appName)
         }
         val start = System.currentTimeMillis()
         conn.connect()
@@ -51,7 +51,7 @@ object SpeedTest {
             outer@ while (true) {
                 val conn = (URL(DOWNLOAD_URL).openConnection(proxy()) as HttpURLConnection).apply {
                     connectTimeout = 10000; readTimeout = 20000; requestMethod = "GET"
-                    setRequestProperty("User-Agent", "CubeVPN")
+                    setRequestProperty("User-Agent", Brand.appName)
                 }
                 conn.connect()
                 conn.inputStream.use { input ->
