@@ -33,10 +33,20 @@ ADAPTIVE_DP = 108
 LEGACY_DP = 48
 DEFAULT_LOGO_FRACTION = 0.60  # of the 108dp canvas — inside the 72dp safe zone
 
+# A vector rather than a <color>, even though a flat colour is all the launcher needs: the app
+# paints these two layers itself on its language picker, welcome and about screens, and
+# Compose's painterResource loads vectors and bitmaps but not a ColorDrawable.
 BACKGROUND_XML = """<?xml version="1.0" encoding="utf-8"?>
 <!-- Generated per brand by tools/brand/make_icons.py -->
-<color xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="{color}" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M0,0h108v108h-108z"
+        android:fillColor="{color}" />
+</vector>
 """
 
 
