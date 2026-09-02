@@ -280,6 +280,57 @@ twice.
 
 ---
 
+## 5. Taken from the Android side's patch (2026-09-02)
+
+That session sent a patch implementing the server half independently. The
+infrastructure it needed already existed here under different names, so the
+patch was not applied — `app-api/` and `AppBrand.php` would have landed beside
+the live `app/` and `AppBrands.php` as a second copy of the same thing. Two
+capabilities in it did not exist, and those were taken:
+
+**`POST /app/provision.php`** — the reseller's panel pushes their customers'
+services to us, so the app fills itself in instead of asking the customer to
+paste a link.
+
+```
+X-Cube-Brand:     <brand_key>
+X-Cube-Signature: <hex hmac-sha256 of the RAW body, keyed with the brand's provision secret>
+
+{ "telegram_id": "123456789",
+  "services": [ { "id": "inv-91", "title": "Germany 50GB",
+                  "subscription_url": "https://…",
+                  "expires_at": "2026-10-01 00:00:00", "active": true } ] }
+```
+
+The provision secret is a **second** credential, minted in the admin console
+and shown once. `brand_key` cannot do this job: it is compiled into an APK
+anyone can decompile, and with it a stranger could hand every customer of a
+brand a subscription link of their choosing. Signed over the raw body, because
+two different byte strings can parse to the same JSON and only one was signed.
+
+A reseller who never calls it loses nothing — their customers paste their own
+link, exactly as before. It matters most for the reseller who is **not** on our
+panel: there is no database of theirs for us to read instead.
+
+`accountme` now returns provisioned services first and adds a linked shop's
+rows after, skipping any the panel already sent under the same id.
+
+**`GET /app/update.php`** — the in-app update feed `white-label.md` calls
+`UPDATE_URL`. Per **brand**, not per tenant, because an app-only customer has
+no tenant and needs updates as much as anyone. The build service writes
+`storage/app-updates/brand-<id>.json`; the APKs stay on the release host.
+
+Every failure — unknown brand, lapsed licence, missing file, broken JSON,
+database down — answers `{"version":""}`, which reads as "you are current". An
+app that cannot check for updates is not a broken app, and an endpoint that
+answered differently for a real brand than a guessed one would be a way to
+enumerate brands.
+
+So `UPDATE_URL` should point at `https://<platform>/app/update.php`, not at a
+panel.
+
+---
+
 *Server side lives in `cubepy/CubeSaz`: `src/Platform/AppBrands.php`,
 `app/{requestcode,verifycode,accountme}.php`, `app/lib/bootstrap.php`,
 `platform_applicense.php`. Behaviour is pinned by
