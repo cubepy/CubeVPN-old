@@ -27,6 +27,9 @@ LABELS="brand-builder"
 # left to fill the box. Percentages are of one core: 150 means one and a half cores.
 CPU_QUOTA=""          # default: half the cores, computed below
 MEMORY_MAX="6G"
+# Which runner to install. Blank asks GitHub for the current one; pin it with --runner-version
+# if this machine cannot reach the API.
+RUNNER_VERSION=""
 BRANDS_DIR="/var/lib/cubevpn-brands"
 SDK_DIR="/opt/android-sdk"
 # Any recent build of the command-line tools works — sdkmanager updates itself and the package
@@ -41,6 +44,7 @@ while [ $# -gt 0 ]; do
         --labels) LABELS="$2"; shift 2 ;;
         --cpu-quota)  CPU_QUOTA="$2"; shift 2 ;;
         --memory-max) MEMORY_MAX="$2"; shift 2 ;;
+        --runner-version) RUNNER_VERSION="$2"; shift 2 ;;
         *) echo "unknown option: $1" >&2; exit 2 ;;
     esac
 done
@@ -139,9 +143,23 @@ echo "    $BRANDS_DIR   (brand files here, keys in keystores/)"
 say "GitHub runner"
 RUNNER_DIR="$RUNNER_HOME/actions-runner"
 if [ ! -f "$RUNNER_DIR/config.sh" ]; then
-    VER="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest \
-           | grep -m1 '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')"
-    [ -n "$VER" ] || { echo "could not determine the latest runner version" >&2; exit 1; }
+    VER="$RUNNER_VERSION"
+    if [ -z "$VER" ]; then
+        # Read the whole reply first and match it in the shell. Piping curl into `grep -m1`
+        # looks tidier and is a trap: grep closes the pipe on its first match, curl dies of
+        # SIGPIPE mid-write, and with pipefail the script stops on a "Failure writing output"
+        # that has nothing to do with anything being wrong.
+        api="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest || true)"
+        if [[ "$api" =~ \"tag_name\"[[:space:]]*:[[:space:]]*\"v([^\"]+)\" ]]; then
+            VER="${BASH_REMATCH[1]}"
+        fi
+    fi
+    if [ -z "$VER" ]; then
+        echo "could not ask GitHub which runner version is current." >&2
+        echo "take the version from Settings > Actions > Runners on the repository and pass" >&2
+        echo "it, e.g.:  --runner-version 2.336.0" >&2
+        exit 1
+    fi
     need_space "$RUNNER_HOME" 2
     mkdir -p "$RUNNER_DIR"
     # Downloaded to a file rather than piped into tar: a pipe reports only that curl could not
