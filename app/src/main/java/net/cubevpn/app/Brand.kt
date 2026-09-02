@@ -35,6 +35,19 @@ object Brand {
     val donationsEnabled: Boolean =
         BuildConfig.DONATION_CARD_NUMBER.isNotBlank() || tonWallet.isNotEmpty()
 
+    /**
+     * The name split for the wordmark: what comes before the accented tail, and the tail.
+     *
+     * The header has always read "Cube" in the text colour and "VPN" in the accent, which was
+     * written as two literals — so every reseller's app announced itself as CubeVPN at the top
+     * of its own home screen. The same treatment is what their name deserves, so the seam is
+     * found rather than hard-coded: the last word when the name has spaces ("OG VPN"), a
+     * trailing "VPN" when it does not ("CubeVPN"), and otherwise nothing, because a name with
+     * no natural seam looks worse cut than whole.
+     */
+    val nameHead: String get() = nameSplit.first
+    val nameAccentTail: String get() = nameSplit.second
+
     val botHandle: String get() = "@$bot"
     val supportHandle: String get() = "@$support"
     val channelHandle: String get() = "@$channel"
@@ -86,6 +99,20 @@ object Brand {
 
     private fun handle(configured: String, fallback: String): String =
         configured.trim().removePrefix("@").ifEmpty { fallback }
+
+    /** Computed once: the name cannot change while the process is running. */
+    private val nameSplit: Pair<String, String> = splitName(appName)
+
+    private fun splitName(name: String): Pair<String, String> {
+        val trimmed = name.trim()
+        // The space stays with the head so the two runs still read as one name when drawn.
+        val space = trimmed.lastIndexOf(' ')
+        if (space > 0) return trimmed.substring(0, space + 1) to trimmed.substring(space + 1)
+        if (trimmed.length > 3 && trimmed.takeLast(3).equals("vpn", ignoreCase = true)) {
+            return trimmed.dropLast(3) to trimmed.takeLast(3)
+        }
+        return trimmed to ""
+    }
 
     /**
      * "yyyy-MM-dd" → the last millisecond of that day, or 0 for blank or malformed input.
