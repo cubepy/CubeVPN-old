@@ -133,6 +133,11 @@ android {
         // for CubeVPN's own build, whose API_BASE_URL already points somewhere unambiguous.
         buildConfigField("String", "BRAND_KEY", bcString(brandProp("BRAND_KEY", "")))
 
+        // Where the app asks whether this brand is still licensed. Blank — CubeVPN's own build,
+        // and any reseller on our panel, whose app is already gated by the panel it talks to —
+        // means the question is never asked. See License.kt.
+        buildConfigField("String", "LICENSE_URL", bcString(brandProp("LICENSE_URL", "")))
+
         // The launcher label and the widget picker's description can't read BuildConfig, so
         // they're generated as resources here instead of living in res/values/strings.xml.
         resValue("string", "app_name", brandAppName)

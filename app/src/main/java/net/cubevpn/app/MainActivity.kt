@@ -1139,9 +1139,17 @@ class MainActivity : ComponentActivity() {
                         }
                         val authToken by store.authToken.collectAsState()
                         val guestMode by store.guestMode.collectAsState()
+                        // Read once, from the cache, so the decision is instant and works offline.
+                        // The network check below can only change what the next start decides —
+                        // an app that switched itself off mid-session would be a worse experience
+                        // than one that does so cleanly the next time it opens.
+                        val licenceBlocked = remember { License.isBlocked(this@MainActivity) }
+                        LaunchedEffect(Unit) {
+                            runCatching { License.refresh(this@MainActivity) }
+                        }
                         Box {
                             if (startMain) {
-                                if (Brand.hasExpired) {
+                                if (Brand.hasExpired || licenceBlocked) {
                                     TrialOverScreen()
                                 } else if (authToken != null || guestMode || !Brand.accountsEnabled) {
                                     CubeVpnApp(store = store, onConnect = ::connectTo, onDisconnect = ::disconnect, onSwitch = ::switchTo)
