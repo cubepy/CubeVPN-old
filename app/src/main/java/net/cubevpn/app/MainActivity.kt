@@ -3123,6 +3123,7 @@ private fun SettingsScreen(
     val mux by store.mux.collectAsState()
     val muxConcurrency by store.muxConcurrency.collectAsState()
     val settingsContext = androidx.compose.ui.platform.LocalContext.current
+    val settingsUriHandler = LocalUriHandler.current
     val usage by UsageStore.usage.collectAsState()
     val allTime = remember(usage) { UsageStore.totalAll(usage) }
     val curLang by store.lang.collectAsState()
@@ -3199,6 +3200,53 @@ private fun SettingsScreen(
                     Column(Modifier.weight(1f)) {
                         Text(t("invite_friends"), style = MaterialTheme.typography.bodyLarge)
                         Text(t("invite_friends_sub"), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                }
+            }
+        }
+
+        // The reseller's own support account and channel, one tap into settings.
+        //
+        // They were only ever on the about page, three taps deep behind a privacy notice, and
+        // on the sign-in screen — which a brand with no panel of its own never shows. So the
+        // one thing a customer of theirs actually needs to find, when a config stops working
+        // at midnight, was the hardest thing in the app to find.
+        Text(t("telegram_support_title"), style = MaterialTheme.typography.titleMedium)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        ) {
+            Column {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clickable { runCatching { settingsUriHandler.openUri(Brand.supportUrl) } }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(TelegramIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t("telegram_support"), style = MaterialTheme.typography.bodyLarge)
+                        Text(Brand.supportHandle, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
+                }
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clickable { runCatching { settingsUriHandler.openUri(Brand.channelUrl) } }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(TelegramIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t("telegram_channel"), style = MaterialTheme.typography.bodyLarge)
+                        Text(Brand.channelHandle, style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(Icons.Filled.ChevronRight, contentDescription = null)
