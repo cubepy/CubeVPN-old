@@ -477,6 +477,10 @@ private fun accentPaletteOf(theme: AccentTheme): AccentPalette = when (theme) {
     AccentTheme.VIOLET -> VioletPalette
     AccentTheme.AURORA -> AuroraPalette
     AccentTheme.EMBER -> EmberPalette
+    // Generated from a hue rather than hand-tuned — see Accents.kt.
+    AccentTheme.EMERALD -> EmeraldPalette
+    AccentTheme.ROSE -> RosePalette
+    AccentTheme.INDIGO -> IndigoPalette
 }
 
 internal val LocalAccent = compositionLocalOf { VioletPalette as AccentPalette }
@@ -498,10 +502,15 @@ internal val LocalLang = compositionLocalOf { Lang.EN }
 @Composable
 private fun AmbientBackdrop(modifier: Modifier = Modifier) {
     val accent = LocalAccent.current
+    // Always a genuinely different hue from the active one, so the backdrop reads as depth
+    // rather than as one colour at two opacities.
     val secondHue = when (accent.theme) {
         AccentTheme.VIOLET -> AuroraPalette.glow
         AccentTheme.AURORA -> EmberPalette.glow
         AccentTheme.EMBER -> VioletPalette.glow
+        AccentTheme.EMERALD -> IndigoPalette.glow
+        AccentTheme.ROSE -> VioletPalette.glow
+        AccentTheme.INDIGO -> EmeraldPalette.glow
     }
     Box(modifier) {
         Box(
@@ -722,19 +731,10 @@ private fun WelcomeScreen(onDone: () -> Unit) {
             )
         }
 
-        Text(
-            text = t("welcome_dev"),
-            style = MaterialTheme.typography.bodyMedium,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = welcomeFont,
-            color = Color(0xFFAAB4C4),
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 24.dp)
-        )
+        // "Developed by …" used to sit here, at the bottom of the splash. In a reseller's build it
+        // read "Developed by OG VPN", which is not branding but a false claim about who wrote the
+        // app; in CubeVPN's own build it said the app was developed by itself. There was no
+        // version of that line worth keeping.
     }
 }
 @Composable
@@ -3633,29 +3633,32 @@ private fun ThemeSettingsScreen(store: ConfigStore, modifier: Modifier = Modifie
             )
         }
 
-        Text(t("accent_color_title"), style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AccentSwatch(
-                palette = VioletPalette,
-                label = t("accent_violet"),
-                selected = accentTheme == AccentTheme.VIOLET,
-                onClick = { store.setAccentTheme(AccentTheme.VIOLET) },
-                modifier = Modifier.weight(1f)
+        // Hidden when the brand chose the colour. A colour the user can change is not a brand
+        // colour, and leaving the picker there would let the first tap undo the branding.
+        if (Brand.accent == null) {
+            Text(t("accent_color_title"), style = MaterialTheme.typography.titleMedium)
+            val accents = listOf(
+                AccentTheme.VIOLET to t("accent_violet"),
+                AccentTheme.AURORA to t("accent_aurora"),
+                AccentTheme.EMBER to t("accent_ember"),
+                AccentTheme.EMERALD to t("accent_emerald"),
+                AccentTheme.ROSE to t("accent_rose"),
+                AccentTheme.INDIGO to t("accent_indigo")
             )
-            AccentSwatch(
-                palette = AuroraPalette,
-                label = t("accent_aurora"),
-                selected = accentTheme == AccentTheme.AURORA,
-                onClick = { store.setAccentTheme(AccentTheme.AURORA) },
-                modifier = Modifier.weight(1f)
-            )
-            AccentSwatch(
-                palette = EmberPalette,
-                label = t("accent_ember"),
-                selected = accentTheme == AccentTheme.EMBER,
-                onClick = { store.setAccentTheme(AccentTheme.EMBER) },
-                modifier = Modifier.weight(1f)
-            )
+            // Three to a row: six across one row leaves each swatch too narrow for its label.
+            accents.chunked(3).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { (theme, label) ->
+                        AccentSwatch(
+                            palette = accentPaletteOf(theme),
+                            label = label,
+                            selected = accentTheme == theme,
+                            onClick = { store.setAccentTheme(theme) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
         }
 
     }
