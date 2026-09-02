@@ -55,7 +55,7 @@ class CubeVpnService : VpnService() {
                 // A trial build that has run out refuses to tunnel, not just to show its UI.
                 // The widget, the quick-settings tile and always-on VPN all start the service
                 // without the activity ever opening, so the screen alone would not stop it.
-                if (Brand.hasExpired) {
+                if (Brand.hasExpired || License.isBlocked(applicationContext)) {
                     die(null)
                     return START_NOT_STICKY
                 }
