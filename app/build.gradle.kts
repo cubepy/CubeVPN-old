@@ -95,13 +95,17 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "DEFAULT_SUB_URL", "\"${secrets.getProperty("DEFAULT_SUB_URL", "")}\"")
         buildConfigField("String", "DONATION_CARD_NUMBER", bcString(localProp("DONATION_CARD_NUMBER")))
         buildConfigField("String", "DONATION_CARD_HOLDER", bcString(localProp("DONATION_CARD_HOLDER")))
-        // Base URL of the CubeVPN account API (see docs/api-contract.md). Set in secrets.properties.
-        buildConfigField("String", "API_BASE_URL", bcString(secrets.getProperty("API_BASE_URL", "")))
+
+        // These three differ per brand as much as the name does — a reseller's app has to talk
+        // to their panel, seed their free configs and update from their channel — so they take
+        // a -P override like the BRAND_* values, falling back to secrets.properties.
+        buildConfigField("String", "DEFAULT_SUB_URL", bcString(brandProp("DEFAULT_SUB_URL", "")))
+        // Base URL of the account API (see docs/api-contract.md).
+        buildConfigField("String", "API_BASE_URL", bcString(brandProp("API_BASE_URL", "")))
         // "owner/repo" for the About screen's update checker. Leave blank to disable.
-        buildConfigField("String", "UPDATE_REPO", bcString(secrets.getProperty("UPDATE_REPO", "")))
+        buildConfigField("String", "UPDATE_REPO", bcString(brandProp("UPDATE_REPO", "")))
 
         // White-label identity. See Brand.kt — user-facing copy uses placeholders, never these
         // values directly. Blank falls back to CubeVPN's own, so a plain checkout is unchanged.

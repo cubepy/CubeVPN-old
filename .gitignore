@@ -38,3 +38,10 @@ keystore.b64
 .DS_Store
 Thumbs.db
 *.log
+
+# White-label builds: signing keys and per-reseller brand files never go in git.
+# Losing tools/brand/keystores/ means those brands can never be updated again —
+# back it up off this machine.
+/tools/brand/keystores/
+/tools/brand/brands/
+/dist/
