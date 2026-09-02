@@ -122,6 +122,12 @@ android {
             bcString(brandProp("BRAND_TON_WALLET", "UQBP3uD9kE9UgTWrH2BiVDmurQZOvVl8awinVzqnBmenUQUq"))
         )
 
+        // A promotional build that stops working on its own, as "yyyy-MM-dd". Blank — every
+        // ordinary build — never expires. This is deliberately baked in rather than checked
+        // against a server: a trial handed to one reseller isn't worth a service to run, and a
+        // build with nothing to phone home to can't be broken by our own downtime.
+        buildConfigField("String", "BRAND_EXPIRES_AT", bcString(brandProp("BRAND_EXPIRES_AT", "")))
+
         // The launcher label and the widget picker's description can't read BuildConfig, so
         // they're generated as resources here instead of living in res/values/strings.xml.
         resValue("string", "app_name", brandAppName)

@@ -20,7 +20,7 @@ Ask for exactly this. Anything missing blocks the build, so it's worth collectin
 | Login bot | `@nova_login_bot` | Must be *their* bot: their customers' accounts live in it. |
 | Support account | `@nova_support` | |
 | Channel | `@nova_channel` | |
-| Panel address | `https://panel.novaco.ir` | Their CubeSaz panel. This is what makes the app theirs. |
+| Panel address | `https://panel.novaco.ir` | Their CubeSaz panel. Blank for a reseller on their own system — see below. |
 | Logo | `logo.png` | Square PNG, ≥432×432, transparent background preferred. |
 | Icon background | `#0E7490` | The colour behind the logo on the launcher icon. |
 | TON wallet | *(optional)* | Leave blank and the donation card disappears. |
@@ -142,6 +142,32 @@ Each build takes about four to five minutes. This is the cost that grows with th
 resellers, and it's the thing worth automating first once there are more than a handful.
 
 ---
+
+## A reseller who isn't on our panel
+
+`API_BASE_URL` is what connects the app to a CubeSaz tenant: sign-in codes are sent by that
+tenant's bot and purchased services are read from its database. A reseller who sells through
+their own system has neither, so leave the field blank. The app then hides sign-in, "my
+services" and the referral card, and what they get is a branded client their customers paste
+their own subscription link into — any panel, since the fetcher reads plain, base64, Clash and
+JSON subscriptions alike.
+
+Two things follow. Their app can't be switched off by the CubeSaz subscription gate, because
+none of its traffic passes through us. And `BRAND_BOT` becomes decoration: it still points the
+app's Telegram buttons at their bot, but nothing signs in through it.
+
+## Trial builds
+
+`BRAND_EXPIRES_AT=2026-09-09` produces a build that works through that day and then stops —
+the app shows a single notice, and the VPN service refuses to start even from the widget or
+always-on VPN, so there is no way around it from outside the app.
+
+The date is compiled in rather than checked against a server. For a trial that is the right
+trade: nothing to run, nothing to keep online, and no way for our own downtime to break a
+build we handed someone. It also means extending a trial is a new APK, which is why this is
+for trials and never for billing.
+
+Leave it blank for every paying brand.
 
 ## What this deliberately doesn't do yet
 

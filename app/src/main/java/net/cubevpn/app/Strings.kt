@@ -15,6 +15,8 @@ object Strings {
     private val en = mapOf(
         "connection" to "Connection",
         "settings" to "Settings",
+        "trial_over_title" to "This trial has ended",
+        "trial_over_body" to "This copy of {app} was a time-limited trial and has now expired. Message {support} to keep using it.",
         "app_title" to "{app}",
         "appearance" to "Appearance",
         "choose_server" to "Choose server",
@@ -303,6 +305,8 @@ object Strings {
     private val fa = mapOf(
         "connection" to "اتصال",
         "settings" to "تنظیمات",
+        "trial_over_title" to "دورهٔ آزمایشی تمام شد",
+        "trial_over_body" to "این نسخهٔ {app} یک نسخهٔ آزمایشی زمان‌دار بود و اعتبارش تمام شده است. برای ادامه به {support} پیام بدهید.",
         "app_title" to "{app}",
         "choose_server" to "انتخاب سرور",
         "add_config_title" to "افزودن کانفیگ",

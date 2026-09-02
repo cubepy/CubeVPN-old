@@ -600,6 +600,34 @@ private fun CubeVpnWordmark(modifier: Modifier = Modifier, height: Dp = 34.dp, t
 }
 
 
+/**
+ * The whole app, for a promotional build whose time is up.
+ *
+ * There is no way past it on purpose — a trial that can be dismissed is not a trial — and it
+ * names the support account rather than a price, because the reseller who handed this out is
+ * the one their user should be talking to.
+ */
+@Composable
+private fun TrialOverScreen() {
+    val t = stringsFn()
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(t("trial_over_title"), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(12.dp))
+            Text(
+                t("trial_over_body"),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @Composable
 private fun WelcomeScreen(onDone: () -> Unit) {
     val t = stringsFn()
@@ -1107,7 +1135,9 @@ class MainActivity : ComponentActivity() {
                         val guestMode by store.guestMode.collectAsState()
                         Box {
                             if (startMain) {
-                                if (authToken != null || guestMode) {
+                                if (Brand.hasExpired) {
+                                    TrialOverScreen()
+                                } else if (authToken != null || guestMode || !Brand.accountsEnabled) {
                                     CubeVpnApp(store = store, onConnect = ::connectTo, onDisconnect = ::disconnect, onSwitch = ::switchTo)
                                 } else {
                                     AuthGate(store = store, onSkip = { store.setGuestMode(true) })
@@ -1864,34 +1894,37 @@ private fun ConnectionScreen(
                     }
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable { onOpenServices() },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                // Purchased services come from the panel; without one there is nothing to list.
+                if (Brand.accountsEnabled) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { onOpenServices() },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                     ) {
-                        Icon(
-                            Icons.Filled.Bolt, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(t("my_services"), style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                if (serviceCount == 0) t("no_services_yet") else n(t("services_count").format(serviceCount)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Bolt, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
                             )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(t("my_services"), style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    if (serviceCount == 0) t("no_services_yet") else n(t("services_count").format(serviceCount)),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Icon(Icons.Filled.ChevronRight, contentDescription = null)
                         }
-                        Icon(Icons.Filled.ChevronRight, contentDescription = null)
                     }
                 }
 
@@ -3105,61 +3138,65 @@ private fun SettingsScreen(
         modifier.fillMaxSize().verticalScroll(scrollState).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(t("account"), style = MaterialTheme.typography.titleMedium)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            if (authToken != null) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        localizeDigits(authIdentifier ?: "", lang),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { confirmLogout = true }) { Text(t("logout")) }
-                }
-            } else {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        t("services_login_needed"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { store.setGuestMode(false) }) { Text(t("login_title")) }
+        // Sign-in and the referral programme both live on the panel, so a build with no
+        // panel behind it hides them rather than offering a door that opens onto nothing.
+        if (Brand.accountsEnabled) {
+            Text(t("account"), style = MaterialTheme.typography.titleMedium)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                if (authToken != null) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            localizeDigits(authIdentifier ?: "", lang),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { confirmLogout = true }) { Text(t("logout")) }
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            t("services_login_needed"),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { store.setGuestMode(false) }) { Text(t("login_title")) }
+                    }
                 }
             }
-        }
-        if (confirmLogout) {
-            AlertDialog(
-                onDismissRequest = { confirmLogout = false },
-                title = { Text(t("logout")) },
-                text = { Text(t("logout_confirm")) },
-                confirmButton = {
-                    TextButton(onClick = { confirmLogout = false; store.logout() }) { Text(t("logout")) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { confirmLogout = false }) { Text(t("cancel")) }
-                }
-            )
-        }
+            if (confirmLogout) {
+                AlertDialog(
+                    onDismissRequest = { confirmLogout = false },
+                    title = { Text(t("logout")) },
+                    text = { Text(t("logout_confirm")) },
+                    confirmButton = {
+                        TextButton(onClick = { confirmLogout = false; store.logout() }) { Text(t("logout")) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmLogout = false }) { Text(t("cancel")) }
+                    }
+                )
+            }
 
-        Card(
-            modifier = Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .clickable { onOpenReferral() },
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(t("invite_friends"), style = MaterialTheme.typography.bodyLarge)
-                    Text(t("invite_friends_sub"), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Card(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable { onOpenReferral() },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(t("invite_friends"), style = MaterialTheme.typography.bodyLarge)
+                        Text(t("invite_friends_sub"), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null)
                 }
-                Icon(Icons.Filled.ChevronRight, contentDescription = null)
             }
         }
 

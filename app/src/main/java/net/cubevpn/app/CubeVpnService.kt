@@ -52,6 +52,13 @@ class CubeVpnService : VpnService() {
                 return START_NOT_STICKY
             }
             else -> {
+                // A trial build that has run out refuses to tunnel, not just to show its UI.
+                // The widget, the quick-settings tile and always-on VPN all start the service
+                // without the activity ever opening, so the screen alone would not stop it.
+                if (Brand.hasExpired) {
+                    die(null)
+                    return START_NOT_STICKY
+                }
                 val configJson = intent?.getStringExtra(EXTRA_CONFIG)
                 configName = intent?.getStringExtra(EXTRA_NAME) ?: "VPN"
                 stopLabel = intent?.getStringExtra(EXTRA_STOP_LABEL) ?: "Disconnect"
